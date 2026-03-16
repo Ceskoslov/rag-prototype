@@ -13,7 +13,7 @@ dependencies = [
     "langchain-core==0.3.29",
     "langchain-openai==0.2.14",
     "langchain-community==0.3.14",
-    "langgraph==0.2.59",
+    "langgraph==0.2.71",
     "langgraph-supervisor==0.0.3",
     "chromadb==0.5.23",
     "redis==5.2.1",
@@ -33,12 +33,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "aiosqlite==0.21.0",
     "pytest==8.3.4",
     "pytest-asyncio==0.25.2",
     "pytest-cov==6.0.0",
     "ruff==0.9.1",
-    "fakeredis==2.27.2",
+    "fakeredis==2.34.1",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
