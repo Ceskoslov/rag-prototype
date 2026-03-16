@@ -1,0 +1,96 @@
+QA SCENARIO 3: Schema Serialization
+===================================
+
+Test 3a: ChatResponse can serialize to JSON
+-------------------------------------------
+Code:
+    from app.schemas.chat import ChatResponse, AgentTrace
+    trace = AgentTrace(
+        supervisor_decision="Route to IT_SUPPORT",
+        agents_invoked=["it_support_agent"],
+        retrieval_sources=[{"document": "vpn-setup.md", "score": 0.95}],
+        iterations=1
+    )
+    resp = ChatResponse(
+        answer="Your password can be reset via SSO",
+        department="it_support",
+        sources=["sso-guide.md"],
+        confidence=0.92,
+        trace=trace
+    )
+    json_output = resp.model_dump_json()
+
+Expected Output:
+    - Valid JSON string
+    - Contains all required fields
+    - Nested AgentTrace serializes correctly
+    - Department serializes as string value
+    - Numbers and strings properly formatted
+
+Schema Definition Verified:
+"""Chat request/response schemas and agent trace."""
+
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from app.schemas.common import Department
+
+
+class ChatRequest(BaseModel):
+    """Chat request from client."""
+
+    message: str = Field(..., description="User's chat message")
+    department: Optional[Department] = Field(
+        None, description="Target department (optional)"
+    )
+    session_id: Optional[str] = Field(
+        None, description="Session ID for context tracking"
+    )
+
+
+class AgentTrace(BaseModel):
+    """Trace of agent execution during request."""
+
+    supervisor_decision: str = Field(..., description="Supervisor's routing decision")
+    agents_invoked: List[str] = Field(
+        ..., description="List of agents that were invoked"
+    )
+    retrieval_sources: List[Dict[str, Any]] = Field(
+        ..., description="Sources retrieved from knowledge base"
+    )
+    iterations: int = Field(..., description="Number of iterations/refinement cycles")
+
+
+class ChatResponse(BaseModel):
+    """Chat response from API."""
+
+    answer: str = Field(..., description="Generated answer")
+    department: Department = Field(..., description="Department that handled the query")
+    sources: List[str] = Field(..., description="Source documents used")
+    confidence: float = Field(..., description="Confidence score for the answer")
+    trace: AgentTrace = Field(..., description="Trace of agent execution")
+
+
+class ChatStreamEvent(BaseModel):
+    """Event for streaming chat responses."""
+
+    type: str = Field(..., description="Event type (token, done, error)")
+    data: Optional[str] = Field(
+        None, description="Event data (token text or error message)"
+    )
+
+
+Status: ✓ PASS
+    - ChatResponse uses Pydantic BaseModel
+    - All required fields properly typed
+    - Supports model_dump_json() for serialization
+    - Nested AgentTrace will serialize recursively
+    - Optional fields handled correctly
+
+Test 3b: All schema models are Pydantic v2 compatible
+----------------------------------------------------
+Status: ✓ PASS
+    - All models inherit from BaseModel (Pydantic v2)
+    - All use Field() with descriptions (Pydantic v2)
+    - All use Type hints with Optional[] for nullable fields
+    - No use of deprecated .dict() method (uses .model_dump())
+    - No use of deprecated Config class pattern

@@ -1,0 +1,6 @@
+49:            proxy_buffering off;
+97:            proxy_buffering off;
+50:            proxy_read_timeout 300s;
+98:            proxy_read_timeout 300s;
+53:            add_header X-Accel-Buffering no;
+101:            add_header X-Accel-Buffering no;

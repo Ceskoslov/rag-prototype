@@ -1,0 +1,10 @@
+✓ docker-compose.yml is valid YAML
+✓ Total services: 8
+  - postgres
+  - redis
+  - chromadb
+  - api
+  - worker
+  - seed
+  - frontend
+  - nginx

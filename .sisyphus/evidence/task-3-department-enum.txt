@@ -1,0 +1,62 @@
+QA SCENARIO 2: Department Enum Validation
+=========================================
+
+Test 2a: All 4 departments present
+----------------------------------
+Code:
+    from app.schemas.common import Department
+    print([d.value for d in Department])
+
+Expected Output:
+    ['it_support', 'legal', 'credit_card', 'airport_ground']
+
+Actual Schema Definition:
+"""Common type definitions and enums."""
+
+from enum import Enum
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+class Department(str, Enum):
+    """Department enum with 4 required values."""
+
+    IT_SUPPORT = "it_support"
+    LEGAL = "legal"
+    CREDIT_CARD = "credit_card"
+    AIRPORT_GROUND = "airport_ground"
+
+
+class HealthResponse(BaseModel):
+    """Health check response."""
+
+    status: str = Field(..., description="Health status")
+    version: str = Field(..., description="API version")
+
+
+class ErrorResponse(BaseModel):
+    """Standard error response."""
+
+    error: str = Field(..., description="Error type")
+    message: str = Field(..., description="Error message")
+    status_code: int = Field(..., description="HTTP status code")
+    detail: Optional[str] = Field(None, description="Additional error details")
+
+
+Status: ✓ PASS
+    - IT_SUPPORT = "it_support" ✓
+    - LEGAL = "legal" ✓
+    - CREDIT_CARD = "credit_card" ✓
+    - AIRPORT_GROUND = "airport_ground" ✓
+    
+All 4 departments present with correct snake_case values.
+
+Test 2b: Department enum values are correct
+-------------------------------------------
+Expected values in order:
+    1. it_support
+    2. legal
+    3. credit_card
+    4. airport_ground
+
+Status: ✓ PASS (All 4 values verified in source code)

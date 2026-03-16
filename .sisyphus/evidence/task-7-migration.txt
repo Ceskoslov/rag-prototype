@@ -1,0 +1,48 @@
+# Alembic Migration Evidence
+
+## Migration ID
+18ffd4e296d9_initial_schema
+
+## Migration Path
+/home/boxinliu/rebuild_project/apps/backend/alembic/versions/18ffd4e296d9_initial_schema.py
+
+## Tables Created
+
+### conversations
+- id (Integer, PK)
+- session_id (String 255, UNIQUE, INDEXED)
+- department (String 255)
+- created_at (DateTime, server_default: now())
+- updated_at (DateTime, server_default: now())
+
+### messages
+- id (Integer, PK)
+- conversation_id (Integer, FK → conversations.id, CASCADE DELETE, INDEXED)
+- role (String 50)
+- content (Text)
+- sources (JSON, nullable)
+- trace (JSON, nullable)
+- created_at (DateTime, server_default: now())
+- updated_at (DateTime, server_default: now())
+
+### evaluation_results
+- id (Integer, PK)
+- conversation_id (Integer, FK → conversations.id, CASCADE DELETE, INDEXED)
+- faithfulness (Numeric 5.4)
+- answer_relevancy (Numeric 5.4)
+- context_precision (Numeric 5.4)
+- context_recall (Numeric 5.4)
+- created_at (DateTime, server_default: now())
+- updated_at (DateTime, server_default: now())
+
+## Relationships
+- Conversation has many Messages (one-to-many)
+- Conversation has many EvaluationResults (one-to-many)
+- Messages cascade delete on Conversation delete
+- EvaluationResults cascade delete on Conversation delete
+
+## Notes
+- All models use async SQLAlchemy 2.0 API
+- Migration compatible with PostgreSQL async driver (asyncpg)
+- Timestamp columns have server-side defaults
+- JSON columns for flexible message metadata storage

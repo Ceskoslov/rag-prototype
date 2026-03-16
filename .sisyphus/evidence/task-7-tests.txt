@@ -1,0 +1,38 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.6.0 -- /home/boxinliu/rebuild_project/apps/backend/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/boxinliu/rebuild_project/apps/backend
+configfile: pytest.ini
+plugins: asyncio-0.23.2, anyio-4.12.1
+asyncio: mode=Mode.AUTO
+collecting ... collected 9 items
+
+tests/models/test_models.py::test_conversation_creation PASSED           [ 11%]
+tests/models/test_models.py::test_message_creation PASSED                [ 22%]
+tests/models/test_models.py::test_message_with_sources_and_trace PASSED  [ 33%]
+tests/models/test_models.py::test_evaluation_result_creation PASSED      [ 44%]
+tests/models/test_models.py::test_conversation_message_relationship PASSED [ 55%]
+tests/models/test_models.py::test_message_cascade_delete PASSED          [ 66%]
+tests/models/test_models.py::test_evaluation_cascade_delete PASSED       [ 77%]
+tests/models/test_models.py::test_message_role_validation PASSED         [ 88%]
+tests/models/test_models.py::test_multiple_evaluation_results_per_conversation PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/models/test_models.py::test_conversation_creation
+  /home/boxinliu/rebuild_project/apps/backend/venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:742: DeprecationWarning: The event_loop fixture provided by pytest-asyncio has been redefined in
+  /home/boxinliu/rebuild_project/apps/backend/tests/conftest.py:11
+  Replacing the event_loop fixture with a custom implementation is deprecated
+  and will lead to errors in the future.
+  If you want to request an asyncio event loop with a scope other than function
+  scope, use the "scope" argument to the asyncio mark when marking the tests.
+  If you want to return different types of event loops, use the event_loop_policy
+  fixture.
+  
+    warnings.warn(
+
+tests/models/test_models.py: 42 warnings
+  /home/boxinliu/rebuild_project/apps/backend/venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3593: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 9 passed, 43 warnings in 0.18s ========================

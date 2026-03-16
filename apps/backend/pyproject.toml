@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "airline-rag-backend"
+version = "0.1.0"
+description = "Multi-agent RAG backend for airline knowledge system"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "langchain-core==0.3.29",
+    "langchain-openai==0.2.14",
+    "langchain-community==0.3.14",
+    "langgraph==0.2.59",
+    "langgraph-supervisor==0.0.3",
+    "chromadb==0.5.23",
+    "redis==5.2.1",
+    "arq==0.26.1",
+    "pydantic==2.10.5",
+    "pydantic-settings==2.7.1",
+    "structlog==24.4.0",
+    "tenacity==9.0.0",
+    "httpx==0.28.1",
+    "sqlalchemy[asyncio]==2.0.36",
+    "asyncpg==0.30.0",
+    "alembic==1.14.0",
+    "sentence-transformers==3.3.1",
+    "rank-bm25==0.2.2",
+    "langgraph-checkpoint-postgres==2.0.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.2",
+    "pytest-cov==6.0.0",
+    "ruff==0.9.1",
+    "fakeredis==2.27.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

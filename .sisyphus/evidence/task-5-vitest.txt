@@ -1,0 +1,13 @@
+
+> frontend@0.0.0 test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/home/boxinliu/rebuild_project/apps/frontend[39m
+
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 14:51:53
+[2m   Duration [22m 753ms[2m (transform 42ms, setup 34ms, import 35ms, tests 6ms, environment 551ms)[22m
+

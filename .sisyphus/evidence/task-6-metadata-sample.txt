@@ -1,0 +1,21 @@
+---
+department: IT Support
+last_updated: 2026-01-15
+category: Connectivity
+audience: All Employees
+---
+
+# VPN Setup and Troubleshooting Guide
+
+## Overview
+---
+department: Legal
+last_updated: 2026-02-01
+category: Passenger Rights
+audience: All Employees
+---
+
+# Passenger Rights and Compensation Policy (EU261, DOT)
+
+## Overview
+✓ Metadata found

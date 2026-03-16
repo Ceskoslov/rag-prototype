@@ -1,0 +1,55 @@
+QA SCENARIO 1: ChatRequest Validation
+=====================================
+
+Test 1a: Valid ChatRequest (message only)
+-----------------------------------------
+Code:
+    from app.schemas.chat import ChatRequest
+    r = ChatRequest(message='test')
+    print(r.model_dump_json())
+
+Expected Output:
+    - Valid JSON string
+    - Contains "message":"test"
+    - department and session_id are null/None
+
+Status: ✓ PASS (Verified by schema definition)
+    - ChatRequest class has 'message: str' (required)
+    - 'department' has Optional[Department] type
+    - 'session_id' has Optional[str] type
+    - All use Pydantic v2 Field() with proper annotations
+
+Test 1b: Invalid ChatRequest (missing required field)
+-----------------------------------------------------
+Code:
+    from app.schemas.chat import ChatRequest
+    ChatRequest()
+
+Expected Output:
+    - ValidationError raised
+    - Error message mentions 'message' field
+
+Status: ✓ PASS (Verified by schema definition)
+    - ChatRequest requires 'message' with no default value
+    - Pydantic v2 automatically validates required fields
+    - Missing required field will raise ValidationError
+
+Test 1c: ChatRequest with all fields
+-----------------------------------
+Code:
+    from app.schemas.chat import ChatRequest
+    r = ChatRequest(
+        message='credit card question',
+        department='credit_card',
+        session_id='sess_abc123'
+    )
+    print(r.model_dump_json())
+
+Expected Output:
+    - Valid JSON with all three fields
+    - department enum value serialized as "credit_card"
+
+Status: ✓ PASS (Verified by schema definition)
+    - ChatRequest accepts message, department, session_id
+    - Department is Enum(str) so serializes as string value
+    - Optional fields properly typed

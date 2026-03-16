@@ -1,0 +1,74 @@
+=== TASK 4: Docker Compose Skeleton + Service Configs ===
+Completed: 2026-03-16
+
+DELIVERABLES CHECKLIST:
+✓ docker-compose.yml (188 lines, 4.6K)
+  - 8 services: api, worker, redis, chromadb, postgres, nginx, frontend, seed
+  - All services configured with proper environment variables
+  - Health checks for all critical services
+  - Named volumes for persistence (postgres_data, redis_data, chroma_data)
+  - Internal Docker network (rag_network)
+  - Correct port mappings and dependencies
+
+✓ apps/backend/Dockerfile (43 lines, 1.1K)
+  - Python 3.12 slim base image
+  - Multi-stage build (base → production)
+  - Pre-downloads bge-base-en-v1.5 model: ✓ VERIFIED
+  - Health check endpoint: /health
+  - Build-essential and dependencies included for installation
+
+✓ apps/frontend/Dockerfile (38 lines, 584B)
+  - Node 20 alpine base image
+  - Multi-stage build (dev → builder → production)
+  - Dev target: Vite dev server with hot reload
+  - Production target: serve static build
+  - Health check included
+
+✓ nginx/nginx.conf (115 lines, 3.7K)
+  - HTTP/80 and HTTPS/443 listeners
+  - SSE-critical directives: ✓ VERIFIED (ALL 3)
+    Line 49 & 97: proxy_buffering off;
+    Line 50 & 98: proxy_read_timeout 300s;
+    Line 53 & 101: add_header X-Accel-Buffering no;
+  - Proper routing: /api/ → api:8000, / → frontend:5173
+  - WebSocket upgrade support
+  - CORS OPTIONS handling
+
+✓ docker-compose.dev.yml (56 lines, 1.1K)
+  - Volume mounts for hot reload (backend, frontend)
+  - Development command overrides (--reload, --watch)
+  - Debug environment variables
+
+✓ init.sql (46 lines, 1.8K)
+  - PostgreSQL extensions: uuid-ossp, pg_trgm
+  - Schema tables: documents, document_chunks, chat_sessions, chat_messages
+  - Proper indexes for query performance
+  - Foreign key constraints with cascade delete
+
+VALIDATION RESULTS:
+✓ docker-compose.yml YAML syntax: VALID
+✓ Service count: 8 (postgres, redis, chromadb, api, worker, seed, frontend, nginx)
+✓ Nginx SSE directives: 3/3 present
+✓ Backend model pre-download: PRESENT
+
+TECHNICAL HIGHLIGHTS:
+- Redis configuration: db=0 for cache, db=1 for ARQ
+- ChromaDB image: chromadb/chroma:latest with /chroma/data volume
+- Health checks configured for: api, postgres, redis, chromadb
+- SSE streaming properly configured with:
+  * proxy_buffering off (prevent response buffering)
+  * proxy_read_timeout 300s (allow long-lived connections)
+  * X-Accel-Buffering: no (disable acceleration)
+- Model pre-download uses sentence-transformers BAAI/bge-base-en-v1.5
+
+EVIDENCE SAVED:
+- .sisyphus/evidence/task-4-compose-validation.txt (service list)
+- .sisyphus/evidence/task-4-services-list.txt (8 services)
+- .sisyphus/evidence/task-4-nginx-sse-check.txt (SSE directives)
+- .sisyphus/evidence/task-4-model-preload.txt (model pre-download)
+- .sisyphus/evidence/task-4-summary.txt (this file)
+
+READY FOR NEXT TASK:
+- Task 26 (production Docker config) can now proceed
+- All 8 services properly isolated and networked
+- Development and production configurations separated
