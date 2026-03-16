@@ -33,6 +33,8 @@ class ChromaCollection(Protocol):
         include: list[IncludeEnum] | None = None,
     ) -> Mapping[str, object]: ...
 
+    def count(self) -> int: ...
+
 
 class ChromaRepository:
     write_policy: str = (
@@ -145,3 +147,16 @@ class ChromaRepository:
 
     def delete_collection(self, department: str) -> None:
         _ = self.client.delete_collection(name=self._collection_name(department))
+
+    def get_collection_count(self, collection_name: str) -> int:
+        try:
+            collection = cast(
+                ChromaCollection,
+                cast(
+                    object,
+                    self.client.get_collection(name=collection_name),
+                ),
+            )
+            return collection.count()
+        except Exception:
+            return 0
