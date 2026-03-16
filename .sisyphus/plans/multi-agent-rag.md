@@ -1482,7 +1482,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `apps/frontend/src/components/**`
   - Pre-commit: `cd apps/frontend && npx vitest run`
 
-- [ ] 19. Frontend Zustand Stores + SSE Hook
+- [x] 19. Frontend Zustand Stores + SSE Hook
 
   **What to do**:
   - **TDD: Write tests FIRST**:
@@ -1793,7 +1793,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/services/chat.py`, `app/routers/chat.py`, `tests/routers/test_chat.py`
   - Pre-commit: `pytest tests/routers/test_chat.py`
 
-- [ ] 22. Frontend Chat Page Assembly + Agent Trace Panel
+- [x] 22. Frontend Chat Page Assembly + Agent Trace Panel
 
   **What to do**:
   - **TDD: Write tests FIRST**:

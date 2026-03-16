@@ -47,7 +47,7 @@ export const useSSE = (url: string, options: SSEOptions = {}) => {
       }
     }
 
-    es.onerror = (err) => {
+    es.onerror = () => {
       const error = new Error('SSE connection error')
       setError(error)
       setIsConnected(false)

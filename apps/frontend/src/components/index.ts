@@ -5,3 +5,4 @@ export * from './DepartmentSelector';
 export * from './SourceCard';
 export * from './SourceList';
 export * from './LoadingIndicator';
+export * from './AgentTracePanel';

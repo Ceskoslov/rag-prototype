@@ -1,0 +1,81 @@
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+src/components/__tests__/AgentTracePanel.test.tsx(1,26): error TS6133: 'fireEvent' is declared but its value is never read.
+src/components/__tests__/AgentTracePanel.test.tsx(35,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(41,78): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(56,38): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(62,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(70,50): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(71,54): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(72,38): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(73,38): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(81,27): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(92,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(103,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(118,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/AgentTracePanel.test.tsx(119,49): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatInput.test.tsx(9,65): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatInput.test.tsx(10,67): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatInput.test.tsx(58,19): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatInput.test.tsx(59,24): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessage.test.tsx(7,39): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessage.test.tsx(12,42): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessage.test.tsx(18,40): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessage.test.tsx(19,40): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessage.test.tsx(20,40): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessageList.test.tsx(12,55): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<Element | null>'.
+src/components/__tests__/ChatMessageList.test.tsx(24,39): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessageList.test.tsx(25,42): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/ChatMessageList.test.tsx(26,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/DepartmentSelector.test.tsx(10,20): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/DepartmentSelector.test.tsx(12,54): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/DepartmentSelector.test.tsx(13,44): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/DepartmentSelector.test.tsx(14,39): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/DepartmentSelector.test.tsx(15,45): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/DepartmentSelector.test.tsx(16,57): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/DepartmentSelector.test.tsx(41,49): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/LoadingIndicator.test.tsx(8,40): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/LoadingIndicator.test.tsx(13,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(14,49): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(15,79): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(16,44): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(20,11): error TS6133: 'container' is declared but its value is never read.
+src/components/__tests__/SourceCard.test.tsx(29,19): error TS2339: Property 'toHaveClass' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(33,11): error TS6133: 'container' is declared but its value is never read.
+src/components/__tests__/SourceCard.test.tsx(42,19): error TS2339: Property 'toHaveClass' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(46,11): error TS6133: 'container' is declared but its value is never read.
+src/components/__tests__/SourceCard.test.tsx(55,19): error TS2339: Property 'toHaveClass' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(59,11): error TS6133: 'container' is declared but its value is never read.
+src/components/__tests__/SourceCard.test.tsx(68,19): error TS2339: Property 'toHaveClass' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceCard.test.tsx(80,48): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+src/components/__tests__/SourceList.test.tsx(20,41): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceList.test.tsx(44,42): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceList.test.tsx(45,42): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceList.test.tsx(46,42): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/components/__tests__/SourceList.test.tsx(61,18): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<Element | null>'.
+src/components/__tests__/SourceList.test.tsx(62,18): error TS2339: Property 'toHaveClass' does not exist on type 'Assertion<Element | null>'.
+src/hooks/__tests__/useChat.test.ts(21,52): error TS6133: 'url' is declared but its value is never read.
+src/hooks/__tests__/useChat.test.ts(136,14): error TS2304: Cannot find name 'global'.
+src/hooks/__tests__/useChat.test.ts(137,24): error TS2304: Cannot find name 'global'.
+src/hooks/__tests__/useChat.test.ts(154,24): error TS2304: Cannot find name 'global'.
+src/hooks/__tests__/useSSE.test.ts(7,7): error TS6133: 'onOpenCallback' is declared but its value is never read.
+src/hooks/__tests__/useSSE.test.ts(8,7): error TS6133: 'onMessageCallback' is declared but its value is never read.
+src/hooks/__tests__/useSSE.test.ts(9,7): error TS6133: 'onErrorCallback' is declared but its value is never read.
+src/hooks/__tests__/useSSE.test.ts(20,52): error TS6133: 'url' is declared but its value is never read.
+src/hooks/__tests__/useSSE.test.ts(166,14): error TS2304: Cannot find name 'global'.
+src/pages/__tests__/ChatPage.test.tsx(4,1): error TS6133: 'useChat' is declared but its value is never read.
+src/pages/__tests__/ChatPage.test.tsx(43,27): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<Element | null>'.
+src/pages/__tests__/ChatPage.test.tsx(49,50): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(56,22): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(62,63): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(63,67): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(69,52): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+src/pages/__tests__/ChatPage.test.tsx(90,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(108,39): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(109,42): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(160,19): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(161,24): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+src/pages/__tests__/ChatPage.test.tsx(190,21): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+src/pages/__tests__/ChatPage.test.tsx(191,18): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.

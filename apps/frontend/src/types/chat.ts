@@ -4,14 +4,24 @@
 export type Department = 'it_support' | 'legal' | 'credit_card' | 'airport_ground'
 
 /**
+ * Retrieval source from agent trace
+ */
+export interface RetrievalSource {
+  department: Department
+  title: string
+  score: number
+  content: string
+}
+
+/**
  * Agent trace information from backend
  */
 export interface AgentTrace {
-  agent_name: string
-  reasoning: string
-  action: string
-  observation?: string
-  timestamp: string
+  supervisor_decision: string
+  agents_invoked: string[]
+  retrieval_sources: RetrievalSource[]
+  iterations: number
+  confidence?: number
 }
 
 /**

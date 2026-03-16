@@ -80,7 +80,13 @@ describe('useChat', () => {
 
     it('should clear agent trace', () => {
       const { result } = renderHook(() => useChat())
-      const trace = { routed_to: 'it_support', sources: [] }
+      const trace = { 
+        supervisor_decision: 'Routing to IT Support',
+        agents_invoked: ['it_support'], 
+        retrieval_sources: [],
+        iterations: 1,
+        confidence: 0.9,
+      }
 
       act(() => {
         useChatStore.setState({ agentTrace: trace })
@@ -185,7 +191,13 @@ describe('useChat', () => {
         result.current.sendMessage('Test')
       })
 
-      const trace = { routed_to: 'legal', sources: [] }
+      const trace = { 
+        supervisor_decision: 'Routing to Legal',
+        agents_invoked: ['legal'], 
+        retrieval_sources: [],
+        iterations: 1,
+        confidence: 0.85,
+      }
       act(() => {
         const es = eventSourceMock as any
         if (es.onmessage) {

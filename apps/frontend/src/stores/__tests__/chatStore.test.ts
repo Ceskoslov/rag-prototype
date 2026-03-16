@@ -124,13 +124,25 @@ describe('useChatStore', () => {
 
   describe('setAgentTrace', () => {
     it('should set agent trace', () => {
-      const trace = { routed_to: 'it_support', sources: [] }
+      const trace = { 
+        supervisor_decision: 'Routing to IT Support',
+        agents_invoked: ['it_support'], 
+        retrieval_sources: [],
+        iterations: 1,
+        confidence: 0.9,
+      }
       useChatStore.getState().setAgentTrace(trace)
       expect(useChatStore.getState().agentTrace).toEqual(trace)
     })
 
     it('should clear agent trace by setting to null', () => {
-      const trace = { routed_to: 'legal', sources: [] }
+      const trace = { 
+        supervisor_decision: 'Routing to Legal',
+        agents_invoked: ['legal'], 
+        retrieval_sources: [],
+        iterations: 1,
+        confidence: 0.85,
+      }
       useChatStore.getState().setAgentTrace(trace)
       useChatStore.getState().setAgentTrace(null)
       expect(useChatStore.getState().agentTrace).toBeNull()

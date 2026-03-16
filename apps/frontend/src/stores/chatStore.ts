@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import type { Department, AgentTrace } from '@/types/chat'
+import type { AgentTrace } from '@/types/chat'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
