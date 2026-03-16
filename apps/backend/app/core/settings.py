@@ -14,6 +14,10 @@ class Settings:
         "DATABASE_URL",
         "postgresql+asyncpg://rag_user:rag_password@localhost:5432/rag_db",
     )
+    redis_url: str = os.getenv(
+        "REDIS_URL",
+        "redis://localhost:6379/0",
+    )
     api_key: str = os.getenv(
         "API_KEY",
         "test-api-key-12345",

@@ -94,11 +94,11 @@ services:
       context: ./apps/backend
       dockerfile: Dockerfile
     container_name: rag_worker
-    command: arq app.tasks.WorkerSettings
+    command: arq app.workers.worker.WorkerSettings
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DATABASE_URL: postgresql://${DB_USER:-rag_user}:${DB_PASSWORD:-rag_password}@postgres:5432/${DB_NAME:-rag_db}
-      REDIS_URL: redis://redis:6379/1
+      REDIS_URL: redis://redis:6379/0
       CHROMA_API_URL: http://chromadb:8000
       PYTHONUNBUFFERED: "1"
     depends_on:

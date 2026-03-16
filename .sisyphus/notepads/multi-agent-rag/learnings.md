@@ -647,3 +647,158 @@ messages = result.scalars().all()
 ### Integration with Self-RAG
 - Department tool should invoke Self-RAG with `{"query": query, "department": department.value}` and return `generation` with fallback.
 - In ReAct tests, fake chat model needs tool-call capable AIMessage output; otherwise agent loops can recurse due to unresolved tool-call flow.
+
+## Task 20: Supervisor Agent (2026-03-16T00:00:00Z)
+
+### create_supervisor Pattern
+- `langgraph-supervisor==0.0.3` `create_supervisor` reliably composes existing compiled department graphs when called with `agents`, `model`, `prompt`, and `output_mode`.
+- `output_mode="full_history"` is useful for supervisor traceability because worker-agent message history stays available in the returned state.
+
+### Explicit vs Auto Routing
+- Explicit department routing should bypass supervisor analysis and call one department graph directly for deterministic behavior and stable confidence defaults.
+- Auto routing should parse structured supervisor metadata (`routing_decision.departments`, `routing_decision.confidence`) into typed service output.
+
+### Multi-Agent Synthesis
+- Parsing logic should normalize both enum and string department values and deduplicate departments to keep response schema clean.
+- Explicit-path timeout handling is best surfaced as a structured low-confidence `SupervisorResult` instead of propagating raw exceptions.
+
+## [2026-03-16 16:35] Task 20: Supervisor Agent with langgraph_supervisor
+
+### LangGraph Supervisor Integration
+- **Package**: `langgraph_supervisor` provides `create_supervisor` function
+- **Pattern**: Supervisor wraps N department agents, analyzes queries, routes to 1+ agents
+- **Key parameters**:
+  - `agents`: List of CompiledStateGraph (department agents)
+  - `model`: LLM for routing decisions
+  - `prompt`: System prompt defining routing strategy
+  - `output_mode`: `"full_history"` (returns all messages + routing_decision) vs `"last_message"`
+- **Output structure**: `{"messages": [...], "routing_decision": {"departments": [...], "confidence": 0.8}}`
+
+### Explicit Department Bypass Pattern
+- **Design**: When user specifies department explicitly, bypass supervisor analysis
+- **Implementation**: Check `department` param in `route_query()`, if not None → route directly to that agent
+- **Benefits**: Faster response (no LLM routing call), deterministic behavior
+- **Confidence heuristic**: Explicit routing = 0.9 confidence (vs supervisor-decided 0.5-0.8)
+
+### Department Extraction with Aliases
+- **Problem**: LLM may return departments as strings ("IT Support", "it_support", "IT_SUPPORT")
+- **Solution**: Normalize with `.lower().replace("-", "_").replace(" ", "_")` + alias map
+- **Aliases**: `{"it_support": IT_SUPPORT, "airport_ground_services": AIRPORT_GROUND}` for common variants
+- **Deduplication**: Track parsed departments in list, skip if already added
+
+### SupervisorResult Dataclass
+- **Fields**: `answer` (final text), `departments_used` (List[Department]), `agent_traces` (full graph outputs), `confidence` (float 0-1)
+- **Usage**: Provides structured output for frontend to show which agents were consulted
+- **Trace format**: List of raw graph results (includes messages, routing_decision, tool calls)
+
+### Timeout Handling for Department Agents
+- **Pattern**: Catch `TimeoutError` in explicit routing, return graceful error SupervisorResult
+- **Values**: confidence=0.0, answer="timed out", agent_traces=[{"error": "timeout", "department": "..."}]
+- **Note**: Supervisor graph timeouts NOT handled here (handled at higher layer in ChatService)
+
+### Testing with Fake Graphs
+- **Pattern**: Use `FakeSupervisorGraph` class with pre-set result dict for supervisor
+- **Pattern**: Use `FakeAgent` class with `invoke()` that returns mock messages
+- **Monkeypatching**: Patch `create_supervisor_graph` to return fake for isolated unit tests
+- **Coverage**: 6 tests (graph creation, single/multi routing, explicit bypass, parsing, timeout)
+
+### Type Safety Considerations
+- **LangGraph type stubs**: Incomplete, expect warnings (`reportMissingTypeStubs`, `reportUnknownMemberType`)
+- **Casts needed**: `cast(list[CompiledStateGraph], list(department_agents.values()))` due to Protocol limitations
+- **AgentLike Protocol**: Custom protocol for agents that implement `invoke(state) -> dict` (used in type hints)
+
+
+## [2026-03-16 07:50:13 UTC] Task 21: Chat Service + SSE Streaming API
+
+### ChatService Orchestration Pattern
+- Implemented a deterministic orchestration flow: resolve/get conversation by session_id, load recent context window (last 10 turns), call supervisor routing, persist user + assistant messages, then return structured ChatResponse with session continuity.
+- Context passed to supervisor is built from recent persisted history plus current user message, keeping routing and generation grounded in prior turns.
+
+### SSE Event Format
+- Streaming endpoint emits strict SSE frames in the format `data: {json}\n\n`.
+- Event taxonomy implemented and validated in tests: `heartbeat`, `token`, `sources`, `trace`, `done`.
+- `token` events stream incrementally from answer tokens; `sources` and `trace` are emitted before the terminal `done` event.
+
+### FastAPI StreamingResponse for SSE
+- SSE delivery is implemented with `StreamingResponse(async_generator, media_type='text/event-stream')`.
+- Async generator yields pre-formatted SSE chunks directly, avoiding response buffering and preserving incremental client updates.
+
+### Session Management with Conversation History
+- Session continuity is anchored on repository `get_or_create_conversation(session_id, department)` and persisted `session_id` returned to clients.
+- History retrieval enforces a bounded context window (10 most recent persisted messages), minimizing prompt bloat while preserving recent conversational state.
+
+## [2026-03-16] Task 23: ARQ Worker Setup + Background Tasks
+
+### ARQ Worker Configuration Pattern
+- **WorkerSettings class pattern**: Define static class with `functions` list, `redis_settings`, `max_jobs`, `job_timeout`, `keep_result` attributes
+- **Redis DB separation**: ARQ worker uses Redis DB 1 (`redis://host:6379/1`), docstore uses DB 0 to prevent key collisions
+- **Redis URL manipulation**: Use `settings.redis_url.rstrip('/0') + '/1'` to safely switch from DB 0 to DB 1
+- **Worker discovery**: ARQ finds worker via module path: `arq app.workers.worker.WorkerSettings`
+- **Function registration**: Tasks registered via `functions = [task1, task2]` list in WorkerSettings
+- **Lifecycle hooks**: `on_startup(ctx)` and `on_shutdown(ctx)` for initialization/cleanup
+
+### Background Task Function Signature
+- **ARQ task signature**: `async def task_name(ctx: dict[str, Any], *args) -> dict[str, Any]`
+- **Context dict (`ctx`)**: Contains `job_id`, `redis`, `job_try`, `enqueue_time`, `score` - passed by ARQ
+- **Return value convention**: Return status dict `{"status": "success|failed|not_implemented", ...}` not exceptions
+- **Error handling pattern**: Catch exceptions, log with structured logging, return error dict (graceful failure)
+- **No re-raising**: Don't re-raise exceptions from tasks - ARQ will retry if exception bubbles up
+
+### IngestionService Integration in Workers
+- **Full dependency instantiation**: Workers must construct IngestionService with all 4 dependencies:
+  - `chroma_repo = ChromaRepository()`
+  - `docstore = RedisDocStore(redis_url=settings.redis_url)`
+  - `chunking_service = ChunkingService()`
+  - `embedding_model = get_embedding_model(settings)`
+- **No session dependency**: IngestionService doesn't use AsyncSession (pure embedding/vector ops)
+- **Data directory**: Use `Path("data")` for document location in worker context
+
+### TDD with ARQ Background Tasks
+- **Mock pattern**: Patch all service dependencies (`ChromaRepository`, `RedisDocStore`, `ChunkingService`, `get_embedding_model`, `IngestionService`)
+- **Nested context managers**: Use multiple `with patch()` blocks for comprehensive mocking
+- **Mock service methods**: `mock_service.ingest_department.return_value = None` or `.side_effect = Exception(...)`
+- **Test error paths**: Test invalid department enum, service exceptions, placeholder "not implemented" tasks
+- **Lifecycle testing**: Test `on_startup` and `on_shutdown` hooks don't raise exceptions
+
+### Type Safety with ARQ
+- **Explicit type annotations**: Add types to WorkerSettings class attributes (`functions: list`, `max_jobs: int`, etc.)
+- **Context parameter**: Type as `ctx: dict[str, Any]` to satisfy ARQ interface contract
+- **Unused parameter warnings**: Expected for `ctx` in lifecycle hooks (required by ARQ but not always used)
+- **Incomplete ARQ type stubs**: ARQ package has partial typing, expect `reportUnknownVariableType` warnings
+
+### Docker Compose ARQ Worker Service
+- **Command**: `arq app.workers.worker.WorkerSettings` (module path to settings class)
+- **Redis URL**: Use DB 0 in env var (`REDIS_URL=redis://redis:6379/0`), worker code switches to DB 1
+- **Dependencies**: Worker needs `postgres`, `redis`, `chromadb` (all with health checks)
+- **Health check**: Use `redis-cli -n 1 ping` to check ARQ's Redis DB 1 connection
+- **Restart policy**: `unless-stopped` for worker resilience
+
+### Redis DB Usage Convention
+- **DB 0**: Application cache, RedisDocStore parent chunks
+- **DB 1**: ARQ job queue, task metadata, results
+- **Rationale**: Namespace isolation prevents key collisions between document IDs and ARQ job IDs
+
+### Structured Logging for Background Tasks
+- **Event-based logging**: Use event names as first param: `logger.info("ingest_task_started", ...)`
+- **Context fields**: Include `department`, `job_id`, `error`, `documents_ingested` as kwargs
+- **Three-stage pattern**: Log task start, completion/failure, with consistent event naming
+- **Warning for placeholders**: Use `logger.warning("evaluate_task_not_implemented", ...)` for stub tasks
+
+### Files Delivered (Task 23)
+- ✓ `app/core/settings.py` — Added `redis_url` field (DB 0 default)
+- ✓ `app/workers/__init__.py` — Export task functions
+- ✓ `app/workers/worker.py` — WorkerSettings configuration (33 lines)
+- ✓ `app/workers/tasks.py` — Task implementations (67 lines)
+- ✓ `tests/workers/__init__.py` — Test package marker
+- ✓ `tests/workers/test_worker.py` — TDD test suite (8 tests, 127 lines)
+- ✓ `docker-compose.yml` — Updated worker service command to `app.workers.worker.WorkerSettings`
+
+### Test Results
+- **New tests**: 8 worker tests (all passing)
+- **Total test count**: 143 tests (135 baseline + 8 worker tests)
+- **No regressions**: All existing tests still pass
+- **TDD verified**: RED phase (8 failures) → GREEN phase (8 passes)
+
+### Dependencies and Blocked Tasks
+- **Task 24 (RAGAS Evaluation)**: `evaluate_conversation_task` is placeholder until Task 24 implements EvaluationService
+- **Future enhancement**: Actual evaluation will follow same pattern (construct service, call method, return status dict)
