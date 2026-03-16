@@ -38,6 +38,10 @@ class ChatResponse(BaseModel):
     sources: List[str] = Field(..., description="Source documents used")
     confidence: float = Field(..., description="Confidence score for the answer")
     trace: AgentTrace = Field(..., description="Trace of agent execution")
+    session_id: Optional[str] = Field(
+        None,
+        description="Session ID for conversation continuity",
+    )
 
 
 class ChatStreamEvent(BaseModel):
