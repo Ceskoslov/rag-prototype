@@ -1109,3 +1109,46 @@ class SeedService:
 - docs/api-reference.md: Full coverage of all 5 functional endpoints with curl examples.
 - docs/deployment.md: Docker Compose orchestration guide and troubleshooting.
 - Verified word count (>2000) and critical headers.
+
+## [2026-03-16] Task 30: Developer Experience Setup
+
+### .env.example Variables (Total: 19)
+- **Azure OpenAI**: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+- **Embedding**: EMBEDDING_PROVIDER (local/azure)
+- **PostgreSQL**: DB_USER, DB_PASSWORD, DB_NAME, DB_PORT, DATABASE_URL
+- **Redis**: REDIS_PORT, REDIS_URL
+- **ChromaDB**: CHROMA_PORT, CHROMA_API_URL
+- **API**: API_PORT, ENVIRONMENT, API_KEY, LOG_LEVEL
+- **Frontend**: FRONTEND_PORT, VITE_API_URL
+- **Optional**: LANGCHAIN_TRACING_V2, LANGCHAIN_API_KEY
+
+Critical: EMBEDDING_PROVIDER=local (no Azure required for local dev)
+All variables properly grouped by category with inline documentation
+
+### setup.sh Design Patterns
+- Uses `set -e` for fail-fast error handling
+- Prerequisite checks: Docker, Docker Compose (exit if missing)
+- Never overwrites existing .env (safety check prevents data loss)
+- Azure credentials optional (prompts user, skips if Enter pressed)
+- sed -i.bak + rm .env.bak pattern for portable cross-platform sed edits
+- Health check polling: loops 30x until services healthy (60s timeout max)
+- Provides demo curl commands in success output
+
+### Makefile Conventions (GNU Make)
+- .PHONY declaration prevents file conflicts (test, clean, etc)
+- Tabs (NOT spaces) for recipe indentation (Make requirement)
+- Backend: `uv run pytest tests/ -v` (respects uv package manager)
+- Frontend: `npm test` (Vitest runner via package.json)
+- Seed/Evaluate: curl targets to local API (requires running services)
+- Clean target: down with -v (removes volumes), clears cache/node_modules
+- Common targets: up, down, build, test, seed, evaluate, logs, clean
+
+### Variable Sourcing Cross-Check
+✅ settings.py: ENVIRONMENT, DATABASE_URL, REDIS_URL, API_KEY
+✅ embeddings.py: EMBEDDING_PROVIDER, AZURE_OPENAI_* (all covered)
+✅ docker-compose.yml: DB_*, REDIS_PORT, CHROMA_PORT, API_PORT, FRONTEND_PORT, ENVIRONMENT, CHROMA_API_URL, VITE_API_URL
+✅ pyproject.toml: uv test command confirmed as `uv run pytest`
+✅ package.json: npm test command via Vitest
+
+All variables referenced in code are documented in .env.example with sensible defaults for local development.
+

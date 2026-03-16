@@ -1573,7 +1573,7 @@ Max Concurrent: 7 (Wave 1)
 
 ### Wave 4 — Integration (After Wave 3, 6 parallel)
 
-- [ ] 20. Supervisor Agent (create_supervisor)
+- [x] 20. Supervisor Agent (create_supervisor)
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/agents/test_supervisor.py`:
@@ -1683,7 +1683,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/agents/supervisor.py`, `tests/agents/test_supervisor.py`
   - Pre-commit: `pytest tests/agents/test_supervisor.py`
 
-- [ ] 21. Chat Service + SSE Streaming API
+- [x] 21. Chat Service + SSE Streaming API
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/routers/test_chat.py`:
@@ -1883,7 +1883,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `apps/frontend/src/pages/**`, `apps/frontend/src/components/AgentTracePanel.tsx`
   - Pre-commit: `cd apps/frontend && npx vitest run`
 
-- [ ] 23. ARQ Worker Setup + Background Tasks
+- [x] 23. ARQ Worker Setup + Background Tasks
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/workers/test_worker.py`:
@@ -1965,7 +1965,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/workers/*.py`, `tests/workers/test_worker.py`
   - Pre-commit: `pytest tests/workers/test_worker.py`
 
-- [ ] 24. RAGAS Evaluation Service + Endpoint
+- [x] 24. RAGAS Evaluation Service + Endpoint
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/services/test_evaluation.py`:
@@ -2053,7 +2053,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/services/evaluation.py`, `app/routers/evaluation.py`, `tests/services/test_evaluation.py`
   - Pre-commit: `pytest tests/services/test_evaluation.py`
 
-- [ ] 25. Seed Data Ingestion via ARQ
+- [x] 25. Seed Data Ingestion via ARQ
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/services/test_seed.py`:
@@ -2324,7 +2324,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `apps/frontend/src/hooks/**`, `apps/frontend/src/pages/**`
   - Pre-commit: `cd apps/frontend && npx vitest run`
 
-- [ ] 28. LangGraph Checkpointing with AsyncPostgresSaver
+- [x] 28. LangGraph Checkpointing with AsyncPostgresSaver
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/agents/test_checkpointing.py`:
@@ -2407,7 +2407,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/agents/supervisor.py` (modified), `app/services/chat.py` (modified), `tests/agents/test_checkpointing.py`
   - Pre-commit: `pytest tests/agents/test_checkpointing.py`
 
-- [ ] 29. Comprehensive README + Architecture Docs
+- [x] 29. Comprehensive README + Architecture Docs
 
   **What to do**:
   - Create `README.md` (project root) — the portfolio centerpiece:
@@ -2499,7 +2499,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `README.md`, `docs/*.md`
   - Pre-commit: N/A
 
-- [ ] 30. .env.example + Setup Scripts
+- [x] 30. .env.example + Setup Scripts
 
   **What to do**:
   - Finalize `.env.example` with ALL required environment variables, grouped and documented:
