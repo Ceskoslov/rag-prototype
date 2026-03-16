@@ -39,7 +39,8 @@ class ChatService:
         query = self._build_query_with_history(message=message, history=history)
 
         try:
-            result = self.supervisor.route_query(query, department)
+            config = {"configurable": {"thread_id": conversation.id}}
+            result = self.supervisor.route_query(query, department, config=config)
         except Exception as exc:
             logger.error("chat_failed", error=str(exc), message=message)
             result = SupervisorResult(
@@ -97,7 +98,8 @@ class ChatService:
         yield self._sse({"type": "heartbeat"})
 
         try:
-            result = self.supervisor.route_query(query, department)
+            config = {"configurable": {"thread_id": conversation.id}}
+            result = self.supervisor.route_query(query, department, config=config)
         except Exception as exc:
             logger.error("chat_stream_failed", error=str(exc), message=message)
             fallback = {

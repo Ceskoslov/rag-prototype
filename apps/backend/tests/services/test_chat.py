@@ -24,8 +24,9 @@ class FakeSupervisor:
         self,
         query: str,
         department: Department | None = None,
+        config: dict[str, Any] | None = None,
     ) -> SupervisorResult:
-        self.calls.append({"query": query, "department": department})
+        self.calls.append({"query": query, "department": department, "config": config})
         return self.result
 
 
@@ -268,3 +269,29 @@ async def test_chat_stream_yields_correct_event_types(
         assert "trace" in types
         assert "done" in types
         assert "heartbeat" in types
+
+
+@pytest.mark.asyncio
+async def test_chat_service_passes_config_with_thread_id(
+    async_session_factory_test,
+) -> None:
+    """Verify that chat service passes config with thread_id to supervisor."""
+    async with async_session_factory_test() as session:
+        supervisor = FakeSupervisor(_supervisor_result())
+        service = ChatService(session=session, supervisor=supervisor)
+
+        session_id = "config-thread-session"
+        await service.process_message(
+            message="Test message",
+            department=Department.IT_SUPPORT,
+            session_id=session_id,
+        )
+
+        # Verify supervisor was called with config containing thread_id
+        assert len(supervisor.calls) == 1
+        call = supervisor.calls[0]
+        assert call["config"] is not None
+        assert "configurable" in call["config"]
+        assert "thread_id" in call["config"]["configurable"]
+        # thread_id should be conversation.id (an integer)
+        assert isinstance(call["config"]["configurable"]["thread_id"], int)
