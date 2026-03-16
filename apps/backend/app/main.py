@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 
 from app.middleware.auth import verify_api_key
-from app.routers import chat, health
+from app.routers import chat, evaluation, health
 
 app = FastAPI(title="Multi-Agent RAG Backend")
 
@@ -19,3 +19,4 @@ async def api_key_middleware(request: Request, call_next):
 
 app.include_router(health.router)
 app.include_router(chat.router)
+app.include_router(evaluation.router)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from app.core.database import async_session_factory
 from app.core.docstore import RedisDocStore
 from app.core.embeddings import get_embedding_model
 from app.core.logging import get_logger
@@ -12,6 +13,7 @@ from app.core.settings import settings
 from app.repositories.vectorstore import ChromaRepository
 from app.schemas.common import Department
 from app.services.chunking import ChunkingService
+from app.services.evaluation import EvaluationService
 from app.services.ingestion import IngestionService
 
 logger = get_logger(__name__)
@@ -72,9 +74,37 @@ async def evaluate_conversation_task(
         "evaluate_task_started", session_id=session_id, job_id=ctx.get("job_id")
     )
 
-    logger.warning("evaluate_task_not_implemented", session_id=session_id)
-    return {
-        "status": "not_implemented",
-        "session_id": session_id,
-        "message": "EvaluationService not yet implemented (Task 24)",
-    }
+    try:
+        async with async_session_factory() as session:
+            service = EvaluationService(session=session)
+            result = await service.evaluate_conversation(session_id)
+
+        metrics = {
+            "faithfulness": float(result.faithfulness),
+            "answer_relevancy": float(result.answer_relevancy),
+            "context_precision": float(result.context_precision),
+            "context_recall": float(result.context_recall),
+        }
+        logger.info(
+            "evaluate_task_completed",
+            session_id=session_id,
+            metrics=metrics,
+            job_id=ctx.get("job_id"),
+        )
+        return {
+            "status": "success",
+            "session_id": session_id,
+            "metrics": metrics,
+        }
+    except Exception as exc:
+        logger.error(
+            "evaluate_task_failed",
+            session_id=session_id,
+            error=str(exc),
+            job_id=ctx.get("job_id"),
+        )
+        return {
+            "status": "failed",
+            "session_id": session_id,
+            "error": str(exc),
+        }

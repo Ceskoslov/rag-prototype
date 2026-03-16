@@ -1,8 +1,6 @@
-"""Evaluation and RAGAS metrics schemas."""
+from datetime import datetime
 
 from pydantic import BaseModel, Field
-from datetime import datetime
-from typing import Optional
 
 
 class RAGASMetrics(BaseModel):
@@ -15,16 +13,36 @@ class RAGASMetrics(BaseModel):
 
 
 class EvaluationRequest(BaseModel):
-    """Request to evaluate a conversation."""
-
     conversation_id: str = Field(..., description="Conversation ID to evaluate")
 
 
 class EvaluationResult(BaseModel):
-    """Result of RAGAS evaluation."""
-
     conversation_id: str = Field(..., description="Evaluated conversation ID")
     metrics: RAGASMetrics = Field(..., description="RAGAS metrics")
     evaluated_at: datetime = Field(
         default_factory=datetime.utcnow, description="Evaluation timestamp"
     )
+
+
+class EvaluationTriggerRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID to evaluate")
+
+
+class EvaluationTriggerResponse(BaseModel):
+    job_id: str
+    session_id: str
+
+
+class EvaluationResultResponse(BaseModel):
+    session_id: str
+    faithfulness: float
+    answer_relevancy: float
+    context_precision: float
+    context_recall: float
+    created_at: datetime
+
+
+class EvaluationStatusResponse(BaseModel):
+    session_id: str
+    status: str
+    job_id: str | None = None

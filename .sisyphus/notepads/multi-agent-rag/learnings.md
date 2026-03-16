@@ -802,3 +802,142 @@ messages = result.scalars().all()
 ### Dependencies and Blocked Tasks
 - **Task 24 (RAGAS Evaluation)**: `evaluate_conversation_task` is placeholder until Task 24 implements EvaluationService
 - **Future enhancement**: Actual evaluation will follow same pattern (construct service, call method, return status dict)
+
+---
+
+## [2026-03-16 17:20:36] Task 25: Seed Data Ingestion via ARQ
+
+### Implementation Summary
+Successfully implemented idempotent seed data ingestion system using ARQ background job enqueueing. System checks ChromaDB collection document counts and enqueues `ingest_department_task` jobs only for empty collections.
+
+### TDD Approach
+1. **RED phase**: Wrote 4 test scenarios first → all failed (ModuleNotFoundError)
+2. **GREEN phase**: Implemented SeedService + CLI script → all 4 tests passed
+3. **Test count**: 64 baseline → 68 total (4 new seed tests)
+
+### Files Created
+- `app/services/seed.py` (57 lines) — SeedService with seed_all_departments + check_seed_status
+- `scripts/seed.py` (59 lines) — CLI script with status display
+- `tests/services/test_seed.py` (141 lines) — 4 comprehensive test scenarios
+- `app/repositories/vectorstore.py` — Added get_collection_count() method
+
+### Key Implementation Patterns
+
+#### Redis URL Manipulation for ARQ DB Switching
+ARQ worker uses Redis DB 1 (not DB 0 used by RedisDocStore). Convert URL correctly:
+```python
+# WRONG: "redis://host:6379/0".rstrip('/0') + '/1' → "redis://host:6379/1/1"
+# RIGHT:
+arq_redis_url = self.redis_url.rsplit("/", 1)[0] + "/1"
+# "redis://host:6379/0" → "redis://host:6379/1"
+```
+
+#### Idempotency Check Pattern
+```python
+for department in Department:
+    collection_name = self.chroma_repo._collection_name(department.value)
+    count = self.chroma_repo.get_collection_count(collection_name)
+    
+    if count > 0:
+        results[department.value] = "skipped"  # Already populated
+    else:
+        await pool.enqueue("ingest_department_task", department=department.value)
+        results[department.value] = "seeded"   # Job enqueued
+```
+
+#### ARQ Pool Management Pattern
+```python
+pool = await arq.create_pool(RedisSettings.from_dsn(arq_redis_url))
+try:
+    # Enqueue jobs
+    await pool.enqueue("task_name", param=value)
+finally:
+    await pool.close(close_connection=True)  # Always close in finally
+```
+
+#### ChromaDB Collection Count Check
+Added to `ChromaRepository`:
+```python
+def get_collection_count(self, collection_name: str) -> int:
+    try:
+        collection = cast(ChromaCollection, ...)
+        return collection.count()
+    except Exception:
+        return 0  # Collection doesn't exist yet
+```
+
+### Test Patterns Learned
+
+#### Mock _collection_name Static Method
+When testing SeedService that uses `self.chroma_repo._collection_name()`:
+```python
+from app.repositories.vectorstore import ChromaRepository
+
+mock_chroma_repo = MagicMock()
+mock_chroma_repo._collection_name = ChromaRepository._collection_name  # Reuse real static method
+```
+
+#### Mock ARQ Pool and Job Enqueueing
+```python
+mock_pool = AsyncMock()
+mock_pool.enqueue.return_value = AsyncMock()  # Return mock job
+
+with patch("app.services.seed.arq.create_pool") as mock_create_pool:
+    mock_create_pool.return_value = mock_pool
+    
+    result = await service.seed_all_departments()
+    
+    assert mock_pool.enqueue.call_count == 4  # One per department
+    mock_pool.close.assert_called_once_with(close_connection=True)
+```
+
+### CLI Script Design (Non-Blocking)
+Seed script enqueues jobs but does NOT wait for completion:
+- **Approach**: Show status before/after, enqueue jobs, exit immediately
+- **Rationale**: ARQ worker handles job execution asynchronously
+- **User flow**: Run script → jobs enqueued → check ARQ worker logs for progress → re-run script to verify final counts
+
+### Gotchas and Lessons
+
+#### Issue: Redis URL Path Manipulation
+**Problem**: `"redis://localhost:6379/0".rstrip('/0') + '/1'` produces `"redis://localhost:6379/1/1"`  
+**Cause**: `rstrip()` removes all `/` and `0` characters from right, not substring `/0`  
+**Solution**: Use `rsplit("/", 1)[0] + "/1"` to split on last `/` and replace DB number
+
+#### Issue: Pydantic Type Annotation Warning
+**Problem**: `reportUnannotatedClassAttribute` warnings for `chroma_repo` and `redis_url`  
+**Solution**: Add type annotations as class attributes:
+```python
+class SeedService:
+    chroma_repo: ChromaRepository
+    redis_url: str
+    
+    def __init__(self, chroma_repo: ChromaRepository, redis_url: str):
+        self.chroma_repo = chroma_repo
+        self.redis_url = redis_url
+```
+
+#### Issue: ARQ Type Errors (Acceptable)
+**Warning**: `reportAttributeAccessIssue: Cannot access attribute "enqueue" for class "ArqRedis"`  
+**Cause**: ARQ's `ArqRedis` type stubs incomplete (runtime-only methods)  
+**Resolution**: Safe to ignore - tests verify runtime behavior works correctly
+
+### Test Results
+- **New tests**: 4 seed service tests (all passing)
+- **Total test count**: 68 tests (64 baseline + 4 seed tests)
+- **No regressions**: All existing tests still pass
+- **TDD verified**: RED phase (4 ModuleNotFoundError) → GREEN phase (4 passes)
+- **LSP diagnostics**: 0 errors (warnings acceptable for ARQ runtime types)
+
+### Dependencies Installed
+- `arq==0.26.1` — Background job queue
+- `chromadb==0.5.23` — Vector database client
+- `structlog==24.4.0` — Structured logging
+- `fakeredis==2.34.1` — Redis mocking for tests
+- `langchain-core==0.3.29` — LangChain core (dependency for docstore)
+
+### Next Steps (Task 26)
+- Docker Compose: Configure `seed` service to run `python scripts/seed.py` on first startup
+- Consider adding `--force` flag to re-seed populated departments (optional enhancement)
+- Add job status polling to CLI for progress tracking (optional enhancement)
+

@@ -89,15 +89,61 @@ class TestIngestDepartmentTask:
 class TestEvaluateConversationTask:
     """Test evaluate_conversation_task background task."""
 
-    async def test_evaluate_conversation_task_placeholder(self) -> None:
+    async def test_evaluate_conversation_task_success(self) -> None:
         from app.workers.tasks import evaluate_conversation_task
 
-        ctx: dict[str, Any] = {"job_id": "eval-job-001"}
-        result = await evaluate_conversation_task(ctx, "session-123")
+        mock_result = MagicMock()
+        mock_result.faithfulness = 0.81
+        mock_result.answer_relevancy = 0.88
+        mock_result.context_precision = 0.77
+        mock_result.context_recall = 0.79
 
-        assert result["status"] == "not_implemented"
+        mock_service = AsyncMock()
+        mock_service.evaluate_conversation.return_value = mock_result
+
+        mock_session = AsyncMock()
+        mock_factory = MagicMock()
+        mock_factory.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.__aexit__ = AsyncMock(return_value=None)
+
+        with patch(
+            "app.workers.tasks.async_session_factory", return_value=mock_factory
+        ):
+            with patch(
+                "app.workers.tasks.EvaluationService", return_value=mock_service
+            ):
+                ctx: dict[str, Any] = {"job_id": "eval-job-001"}
+                result = await evaluate_conversation_task(ctx, "session-123")
+
+        assert result["status"] == "success"
         assert result["session_id"] == "session-123"
-        assert "not yet implemented" in result["message"].lower()
+        assert result["metrics"]["faithfulness"] == 0.81
+
+    async def test_evaluate_conversation_task_handles_errors(self) -> None:
+        from app.workers.tasks import evaluate_conversation_task
+
+        mock_service = AsyncMock()
+        mock_service.evaluate_conversation.side_effect = ValueError(
+            "Conversation not found"
+        )
+
+        mock_session = AsyncMock()
+        mock_factory = MagicMock()
+        mock_factory.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_factory.__aexit__ = AsyncMock(return_value=None)
+
+        with patch(
+            "app.workers.tasks.async_session_factory", return_value=mock_factory
+        ):
+            with patch(
+                "app.workers.tasks.EvaluationService", return_value=mock_service
+            ):
+                ctx: dict[str, Any] = {"job_id": "eval-job-002"}
+                result = await evaluate_conversation_task(ctx, "missing-session")
+
+        assert result["status"] == "failed"
+        assert result["session_id"] == "missing-session"
+        assert "Conversation not found" in result["error"]
 
 
 @pytest.mark.asyncio
