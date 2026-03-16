@@ -1102,3 +1102,10 @@ class SeedService:
 - Dependency note: ragas==0.1.0 added to pyproject.toml; environment required dependency sync (editable install) to resolve missing langgraph/rank_bm25/ragas modules during full-suite execution.
 - Compatibility fix discovered during verification: supervisor/checkpointing path required resilient AsyncPostgresSaver fallback and compile fallback behavior to keep tests stable when psycopg/libpq runtime wrappers are unavailable.
 - Verification outcome: targeted evaluation tests pass and full backend test suite passes (161 passed).
+
+### Task 29: Documentation Complete
+- README.md: ~2300 words, comprehensive portfolio centerpiece with architecture, tech stack, and strategic design rationales.
+- docs/architecture.md: 3 Mermaid diagrams (system, sequence, state) and component deep-dives.
+- docs/api-reference.md: Full coverage of all 5 functional endpoints with curl examples.
+- docs/deployment.md: Docker Compose orchestration guide and troubleshooting.
+- Verified word count (>2000) and critical headers.
