@@ -7,7 +7,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useChat } from '@/hooks/useChat';
 
 export const ChatPage: React.FC = () => {
-  const { messages, isLoading, department, agentTrace } = useChatStore();
+  const { messages, isLoading, department, agentTrace, error } = useChatStore();
   const { sendMessage, setDepartment } = useChat();
 
   return (
@@ -28,6 +28,12 @@ export const ChatPage: React.FC = () => {
         <div className="flex-1 overflow-y-auto">
           <ChatMessageList messages={messages} />
         </div>
+
+        {error && (
+          <div className="px-6 py-3 bg-red-50 border-t border-red-200">
+            <p className="text-sm text-red-800" role="alert">{error}</p>
+          </div>
+        )}
 
         <footer className="border-t border-gray-200 p-4 bg-white">
           <ChatInput onSend={sendMessage} disabled={isLoading} />

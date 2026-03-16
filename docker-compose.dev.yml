@@ -8,9 +8,11 @@ services:
     volumes:
       - ./apps/backend:/app
       - /app/.venv
+      - /app/__pycache__
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       ENVIRONMENT: development
+      PYTHONDONTWRITEBYTECODE: "1"
 
   worker:
     build:
@@ -19,9 +21,11 @@ services:
     volumes:
       - ./apps/backend:/app
       - /app/.venv
+      - /app/__pycache__
     command: arq app.tasks.WorkerSettings --watch
     environment:
       ENVIRONMENT: development
+      PYTHONDONTWRITEBYTECODE: "1"
 
   frontend:
     build:

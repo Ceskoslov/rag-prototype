@@ -7,6 +7,12 @@ export interface ChatMessage {
   content: string
 }
 
+export interface SourceDocument {
+  title: string
+  snippet: string
+  department: string
+}
+
 export type DepartmentType = 'it_support' | 'legal' | 'credit_card' | 'airport_ground' | 'auto'
 
 interface ChatStore {
@@ -15,12 +21,16 @@ interface ChatStore {
   department: DepartmentType
   sessionId: string
   agentTrace: AgentTrace | null
+  sources: SourceDocument[]
+  error: string | null
   addMessage: (role: 'user' | 'assistant', content: string) => void
   updateLastMessage: (content: string) => void
   setLoading: (loading: boolean) => void
   setDepartment: (dept: DepartmentType) => void
   clearMessages: () => void
   setAgentTrace: (trace: AgentTrace | null) => void
+  setSources: (sources: SourceDocument[]) => void
+  setError: (error: string | null) => void
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -32,6 +42,8 @@ export const useChatStore = create<ChatStore>()(
         department: 'auto',
         sessionId: crypto.randomUUID(),
         agentTrace: null,
+        sources: [],
+        error: null,
         addMessage: (role, content) =>
           set((state) => ({
             messages: [...state.messages, { role, content }],
@@ -48,6 +60,8 @@ export const useChatStore = create<ChatStore>()(
         setDepartment: (dept) => set({ department: dept }),
         clearMessages: () => set({ messages: [] }),
         setAgentTrace: (trace) => set({ agentTrace: trace }),
+        setSources: (sources) => set({ sources }),
+        setError: (error) => set({ error }),
       }),
       {
         name: 'chat-store',

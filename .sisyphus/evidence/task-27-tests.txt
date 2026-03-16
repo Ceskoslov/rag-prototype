@@ -1,0 +1,9 @@
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/home/boxinliu/rebuild_project/apps/frontend[39m
+
+
+[2m Test Files [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m      Tests [22m [1m[32m94 passed[39m[22m[90m (94)[39m
+[2m   Start at [22m 19:41:23
+[2m   Duration [22m 2.76s[2m (transform 1.28s, setup 1.21s, import 2.68s, tests 1.50s, environment 15.27s)[22m
+

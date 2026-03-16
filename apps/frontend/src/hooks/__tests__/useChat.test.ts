@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useChat } from '../useChat'
 import { useChatStore } from '../../stores/chatStore'
 
 describe('useChat', () => {
-  let eventSourceMock: Partial<EventSource>
+  let mockFetch: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     useChatStore.setState({
@@ -12,27 +12,41 @@ describe('useChat', () => {
       isLoading: false,
       department: 'auto',
       agentTrace: null,
+      sources: [],
+      error: null,
     })
 
-    eventSourceMock = {
-      close: vi.fn(),
-    }
-
-    const EventSourceConstructor = vi.fn(function (url: string) {
-      return eventSourceMock
-    })
-
-    Object.defineProperty(EventSourceConstructor, Symbol.hasInstance, {
-      value: (obj: unknown) => obj === eventSourceMock,
-    })
-
-    vi.stubGlobal('EventSource', EventSourceConstructor)
+    mockFetch = vi.fn()
+    vi.stubGlobal('fetch', mockFetch)
   })
 
   afterEach(() => {
     vi.clearAllMocks()
     vi.unstubAllGlobals()
   })
+
+  const createSSEResponse = (events: Array<{ type: string; content?: string; data?: any }>) => {
+    const encoder = new TextEncoder()
+    const chunks = events.map(event => {
+      const payload = event.type === 'token' 
+        ? { type: event.type, content: event.content }
+        : { type: event.type, data: event.data }
+      return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)
+    })
+
+    const stream = new ReadableStream({
+      start(controller) {
+        chunks.forEach(chunk => controller.enqueue(chunk))
+        controller.close()
+      }
+    })
+
+    return {
+      ok: true,
+      status: 200,
+      body: stream,
+    } as Response
+  }
 
   describe('hook initialization', () => {
     it('should return initial state from store', () => {
@@ -126,71 +140,64 @@ describe('useChat', () => {
       expect(store.messages).toHaveLength(0)
     })
 
-    it('should create EventSource with correct URL', () => {
+    it('should call fetch with correct URL and headers', async () => {
+      mockFetch.mockResolvedValue(createSSEResponse([{ type: 'done' }]))
       const { result } = renderHook(() => useChat())
 
-      act(() => {
-        result.current.sendMessage('Hello')
+      await act(async () => {
+        await result.current.sendMessage('Hello')
       })
 
-      expect(global.EventSource).toHaveBeenCalled()
-      const callUrl = (global.EventSource as any).mock.calls[0][0] as string
-      expect(callUrl).toContain('/chat/stream')
-      expect(callUrl).toContain('message=Hello')
-      expect(callUrl).toContain('session_id=')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/chat/stream'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-API-Key': expect.any(String),
+          }),
+          body: expect.stringContaining('Hello'),
+        })
+      )
     })
 
-    it('should send specific department when selected', () => {
+    it('should send specific department when selected', async () => {
+      mockFetch.mockResolvedValue(createSSEResponse([{ type: 'done' }]))
       const { result } = renderHook(() => useChat())
 
       act(() => {
         useChatStore.setState({ department: 'it_support' })
       })
 
-      act(() => {
-        result.current.sendMessage('Test')
+      await act(async () => {
+        await result.current.sendMessage('Test')
       })
 
-      const callUrl = (global.EventSource as any).mock.calls[0][0] as string
-      expect(callUrl).toContain('department=it_support')
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(callBody.department).toBe('it_support')
     })
   })
 
   describe('SSE message handling', () => {
-    it('should append token to last assistant message', () => {
+    it('should append token to last assistant message', async () => {
+      mockFetch.mockResolvedValue(createSSEResponse([
+        { type: 'token', content: 'Hi' },
+        { type: 'token', content: ' there' },
+        { type: 'done' },
+      ]))
       const { result } = renderHook(() => useChat())
 
-      act(() => {
-        result.current.sendMessage('Hello')
+      await act(async () => {
+        await result.current.sendMessage('Hello')
       })
 
-      act(() => {
-        const es = eventSourceMock as any
-        if (es.onmessage) {
-          es.onmessage(
-            new MessageEvent('message', {
-              data: JSON.stringify({ type: 'token', content: 'Hi' }),
-            })
-          )
-          es.onmessage(
-            new MessageEvent('message', {
-              data: JSON.stringify({ type: 'token', content: ' there' }),
-            })
-          )
-        }
+      await waitFor(() => {
+        const store = useChatStore.getState()
+        expect(store.messages[1].content).toBe('Hi there')
       })
-
-      const store = useChatStore.getState()
-      expect(store.messages[1].content).toBe('Hi there')
     })
 
-    it('should set agent trace when received', () => {
-      const { result } = renderHook(() => useChat())
-
-      act(() => {
-        result.current.sendMessage('Test')
-      })
-
+    it('should set agent trace when received', async () => {
       const trace = { 
         supervisor_decision: 'Routing to Legal',
         agents_invoked: ['legal'], 
@@ -198,85 +205,70 @@ describe('useChat', () => {
         iterations: 1,
         confidence: 0.85,
       }
-      act(() => {
-        const es = eventSourceMock as any
-        if (es.onmessage) {
-          es.onmessage(
-            new MessageEvent('message', {
-              data: JSON.stringify({ type: 'trace', ...trace }),
-            })
-          )
-        }
-      })
-
-      const store = useChatStore.getState()
-      expect(store.agentTrace).toEqual({ ...trace, type: 'trace' })
-    })
-
-    it('should set loading to false and close on done', () => {
+      mockFetch.mockResolvedValue(createSSEResponse([
+        { type: 'trace', data: trace },
+        { type: 'done' },
+      ]))
       const { result } = renderHook(() => useChat())
 
-      act(() => {
-        result.current.sendMessage('Test')
+      await act(async () => {
+        await result.current.sendMessage('Test')
       })
 
-      act(() => {
-        const es = eventSourceMock as any
-        if (es.onmessage) {
-          es.onmessage(
-            new MessageEvent('message', {
-              data: JSON.stringify({ type: 'done' }),
-            })
-          )
-        }
+      await waitFor(() => {
+        const store = useChatStore.getState()
+        expect(store.agentTrace).toEqual(trace)
       })
-
-      const store = useChatStore.getState()
-      expect(store.isLoading).toBe(false)
-      expect(eventSourceMock.close).toHaveBeenCalled()
     })
 
-    it('should ignore unknown message types', () => {
+    it('should set loading to false and close on done', async () => {
+      mockFetch.mockResolvedValue(createSSEResponse([
+        { type: 'done' },
+      ]))
       const { result } = renderHook(() => useChat())
 
-      act(() => {
-        result.current.sendMessage('Test')
+      await act(async () => {
+        await result.current.sendMessage('Test')
       })
 
-      act(() => {
-        const es = eventSourceMock as any
-        if (es.onmessage) {
-          es.onmessage(
-            new MessageEvent('message', {
-              data: JSON.stringify({ type: 'unknown', content: 'data' }),
-            })
-          )
-        }
+      await waitFor(() => {
+        const store = useChatStore.getState()
+        expect(store.isLoading).toBe(false)
+      })
+    })
+
+    it('should ignore unknown message types', async () => {
+      mockFetch.mockResolvedValue(createSSEResponse([
+        { type: 'unknown', content: 'data' } as any,
+        { type: 'done' },
+      ]))
+      const { result } = renderHook(() => useChat())
+
+      await act(async () => {
+        await result.current.sendMessage('Test')
       })
 
-      const store = useChatStore.getState()
-      expect(store.isLoading).toBe(true)
+      await waitFor(() => {
+        const store = useChatStore.getState()
+        expect(store.isLoading).toBe(false)
+      })
     })
   })
 
   describe('error handling', () => {
-    it('should handle connection error', () => {
+    it('should handle connection error', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'))
       const { result } = renderHook(() => useChat())
 
-      act(() => {
-        result.current.sendMessage('Test')
+      await act(async () => {
+        await result.current.sendMessage('Test')
       })
 
-      act(() => {
-        const es = eventSourceMock as any
-        if (es.onerror) {
-          es.onerror(new Event('error'))
-        }
+      await waitFor(() => {
+        const store = useChatStore.getState()
+        expect(store.isLoading).toBe(false)
+        expect(store.error).toBeTruthy()
       })
-
-      const store = useChatStore.getState()
-      expect(store.isLoading).toBe(false)
-      expect(eventSourceMock.close).toHaveBeenCalled()
     })
   })
 

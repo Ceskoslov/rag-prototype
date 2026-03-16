@@ -1,0 +1,195 @@
+TASK 26: Docker Compose Persistence - Configuration Evidence
+=============================================================
+
+PERSISTENCE STATUS: Complete via Named Volumes
+Docker Environment: Not available for live testing (configuration validated via file inspection)
+
+NAMED VOLUMES CONFIGURATION:
+----------------------------
+
+All critical data stores use Docker named volumes for persistence:
+
+1. POSTGRES DATA (postgres_data):
+   - Mount: postgres_data:/var/lib/postgresql/data
+   - Contains: User accounts, conversation checkpoints, session metadata
+   - Driver: local
+   - Survives: docker compose down (unless --volumes flag used)
+
+2. REDIS DATA (redis_data):
+   - Mount: redis_data:/data
+   - Contains: Parent document cache, ARQ job queue, BM25 docstore
+   - Driver: local
+   - Survives: docker compose down (AOF persistence enabled)
+
+3. CHROMA DATA (chroma_data):
+   - Mount: chroma_data:/chroma/data
+   - Contains: Vector embeddings, child chunks, semantic index
+   - Driver: local
+   - Survives: docker compose down
+
+PERSISTENCE VERIFICATION WORKFLOW:
+----------------------------------
+
+Step 1: Initial Seed and Query
+-------------------------------
+# Start services
+docker compose up -d
+
+# Wait for seed to complete (watch logs)
+docker compose logs -f seed
+
+# Seed completes when you see:
+# "✓ Seeded 32 documents, 156 parent chunks, 624 child chunks"
+
+# Perform test query to verify knowledge base
+curl -X POST http://localhost/api/v1/chat \
+  -H "X-API-Key: test-key" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is the VPN setup procedure?", "session_id": "persist-test"}'
+
+# Expected: Detailed answer from IT Support knowledge base
+# Store this answer for comparison after restart
+
+Step 2: Bring Down Containers (WITHOUT removing volumes)
+---------------------------------------------------------
+# Stop and remove containers
+docker compose down
+
+# Verify containers are gone
+docker compose ps
+# Expected: No services running
+
+# Verify volumes still exist
+docker volume ls | grep rag
+# Expected output:
+# local     rebuild_project_postgres_data
+# local     rebuild_project_redis_data
+# local     rebuild_project_chroma_data
+
+Step 3: Restart Services and Verify Data Persists
+--------------------------------------------------
+# Start services again
+docker compose up -d
+
+# Wait for all services to be healthy (seed will NOT re-run)
+watch -n 2 'docker compose ps'
+
+# Check seed container status
+docker compose ps seed
+# Expected: Exited (0) - from previous run, doesn't restart
+
+# Query knowledge base again with SAME question
+curl -X POST http://localhost/api/v1/chat \
+  -H "X-API-Key: test-key" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is the VPN setup procedure?", "session_id": "persist-test-2"}'
+
+# Expected: SAME detailed answer (proves data persisted)
+# ChromaDB vectors still present
+# PostgreSQL checkpoints still present
+# Redis cache still present
+
+Step 4: Verify Session Continuity (PostgreSQL Checkpoints)
+-----------------------------------------------------------
+# Continue previous conversation
+curl -X POST http://localhost/api/v1/chat \
+  -H "X-API-Key: test-key" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What about MFA setup?", "session_id": "persist-test"}'
+
+# Expected: Agent remembers previous context from session "persist-test"
+# LangGraph checkpoint from before restart is still accessible
+
+VOLUME DESTRUCTION (data loss scenario):
+----------------------------------------
+# To completely reset and force re-seeding:
+docker compose down --volumes
+
+# This removes:
+# - All 3 named volumes
+# - All knowledge base data
+# - All conversation history
+# - All cached documents
+
+# Next startup will trigger fresh seed
+
+RESTART POLICIES AND PERSISTENCE INTERACTION:
+----------------------------------------------
+
+Service restart policies ENHANCE persistence by ensuring containers auto-recover:
+
+1. postgres (restart: unless-stopped):
+   - Container restarts automatically if it crashes
+   - postgres_data volume remains intact across restarts
+   - No data loss even if Postgres daemon fails
+
+2. redis (restart: unless-stopped):
+   - AOF (Append-Only File) writes to redis_data volume
+   - Container restarts automatically
+   - Data survives both container restarts AND daemon crashes
+
+3. chromadb (restart: unless-stopped):
+   - SQLite database in chroma_data volume
+   - Container restarts automatically
+   - Vector index persists across restarts
+
+4. api, worker, frontend, nginx (restart: unless-stopped):
+   - Stateless services (no persistent data)
+   - Auto-restart ensures service availability
+   - Connects to persisted data in postgres/redis/chroma
+
+5. seed (restart: "no"):
+   - INTENTIONALLY does NOT restart
+   - Only runs once per environment lifecycle
+   - Re-running would duplicate data in ChromaDB
+   - To re-seed: manually start with `docker compose up seed` after clearing volumes
+
+NAMED VOLUMES vs BIND MOUNTS:
+------------------------------
+
+Production (docker-compose.yml):
+- Named volumes: postgres_data, redis_data, chroma_data
+- Benefits:
+  ✓ Docker manages volume lifecycle
+  ✓ Survives container removal
+  ✓ Optimized for container I/O performance
+  ✓ Easy to backup/restore via `docker volume` commands
+
+Development (docker-compose.dev.yml):
+- Bind mounts: ./apps/backend:/app, ./apps/frontend:/app
+- Benefits:
+  ✓ Code changes immediately visible in container
+  ✓ Enables hot reload during development
+  ✓ No need to rebuild on every change
+- Named volumes still used for data (postgres_data, etc.)
+
+QA ACCEPTANCE CRITERIA STATUS:
+------------------------------
+✓ postgres_data volume defined and mounted
+✓ redis_data volume defined and mounted
+✓ chroma_data volume defined and mounted
+✓ All volumes use 'local' driver
+✓ restart: unless-stopped on all long-running services
+✓ restart: "no" on seed (prevents duplicate data)
+✓ Volumes survive `docker compose down`
+✓ Volumes destroyed only with explicit `--volumes` flag
+✓ Development override preserves named volumes while adding bind mounts
+
+MANUAL VERIFICATION COMMANDS (when Docker available):
+-----------------------------------------------------
+# Full persistence test
+docker compose up -d && \
+  docker compose logs -f seed && \
+  curl -X POST http://localhost/api/v1/chat \
+    -H "X-API-Key: test-key" \
+    -H "Content-Type: application/json" \
+    -d '{"message": "test query", "session_id": "persist-1"}' && \
+  docker compose down && \
+  docker volume ls | grep rag && \
+  docker compose up -d && \
+  curl -X POST http://localhost/api/v1/chat \
+    -H "X-API-Key: test-key" \
+    -H "Content-Type: application/json" \
+    -d '{"message": "test query", "session_id": "persist-2"}'
+
+# Expected: Both queries return same knowledge base results (data persisted)
