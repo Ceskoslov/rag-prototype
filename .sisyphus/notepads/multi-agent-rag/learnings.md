@@ -615,3 +615,21 @@ messages = result.scalars().all()
 - **Warnings**: 113 deprecation warnings (acceptable - from SQLAlchemy datetime.utcnow and pytest-asyncio)
 - **Evidence files**: 12 evidence files saved for Tasks 8-13 + wave-2-full-test-run.txt
 
+
+## Task 15: Self-RAG StateGraph Implementation (2026-03-16T16:07:30+09:00)
+
+### StateGraph Architecture
+- Implemented `SelfRAGState(TypedDict)` with required fields (`query`, `department`, `documents`, `generation`, `critique_result`, `confidence`, `remaining_steps`) plus `iterations` and `node_history` for deterministic test assertions.
+- Built 4-node graph flow: `retrieve -> generate -> critique -> rewrite_query`, with conditional routing from critique to `END` on approval or rewrite on rejection.
+- Added hard cap logic with two guards: iteration cap (`iterations >= 3`) and RemainingSteps routing threshold (`remaining_steps > 7` enables one more refinement), then explicit end.
+- Compiled graph with `recursion_limit=10` using `compiled.with_config(recursion_limit=10)`.
+
+### Testing with FakeListChatModel
+- Used `FakeListChatModel` deterministic response sequences to drive approve/reject/rewrite cycles without external model calls.
+- Implemented 5 focused tests covering: one-pass approval, forced 3-pass rejection, unanswerable query fallback, no infinite loop enforcement, and exact retrieve/generate/critique/refine order.
+- Introduced a lightweight `FakeRetriever` capturing query call history so refinement path behavior can be asserted precisely.
+
+### Integration Points
+- `retrieve_node` accepts retriever injection from `RunnableConfig.configurable.retriever` with fallback to constructor-provided retriever.
+- Retrieval call contract uses `invoke(query, config={"department": state["department"], "k": 5})`, aligned with HybridRetriever usage expectations.
+- Added tenacity retry wrapper for all LLM invocations (`generate`, `critique`, `rewrite`) using exponential backoff and bounded attempts.

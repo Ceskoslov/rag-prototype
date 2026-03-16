@@ -1114,7 +1114,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/services/retrieval.py`, `tests/services/test_retrieval.py`
   - Pre-commit: `pytest tests/services/test_retrieval.py`
 
-- [ ] 15. Self-RAG StateGraph with Critique Loop
+- [x] 15. Self-RAG StateGraph with Critique Loop
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/agents/test_self_rag.py`:
