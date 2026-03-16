@@ -1396,7 +1396,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/agents/department.py`, `tests/agents/test_department_agents.py`
   - Pre-commit: `pytest tests/agents/test_department_agents.py`
 
-- [ ] 18. Frontend Chat UI Components
+- [x] 18. Frontend Chat UI Components
 
   **What to do**:
   - **TDD: Write component tests FIRST** in `src/components/__tests__/`:

@@ -1152,3 +1152,39 @@ All variables properly grouped by category with inline documentation
 
 All variables referenced in code are documented in .env.example with sensible defaults for local development.
 
+
+## Task 18: Frontend Chat UI Components (RETRY - SUCCESS)
+
+**Date**: 2026-03-16
+
+**Context**: Previous attempt with visual-engineering category (gemini-3.1-pro-preview) failed to create any files. Retried with unspecified-high category (claude-sonnet-4.5) and succeeded.
+
+**Implementation**:
+- Created 6 presentational React components using plain Tailwind CSS:
+  1. `ChatMessage.tsx` - Role-based message bubbles (user=blue, assistant=gray)
+  2. `ChatInput.tsx` - Text input with send button, keyboard support, disabled state
+  3. `ChatMessageList.tsx` - Auto-scrolling message list with useEffect + ref
+  4. `DepartmentSelector.tsx` - Dropdown for 5 departments (auto, IT, legal, credit card, airport ground)
+  5. `SourceCard.tsx` - Citation card with colored department badges
+  6. `SourceList.tsx` - Responsive grid of SourceCards
+- Created comprehensive test suites using React Testing Library + Vitest
+- All components are TypeScript-typed, accessible (aria-labels), and presentational (props-only)
+
+**Test Gotchas**:
+- JSDOM doesn't implement `scrollIntoView` - must mock in beforeEach for ChatMessageList tests
+- Multi-line text matching requires regex or separate assertions - `getByText()` fails on normalized text with newlines
+
+**Verification**:
+- ✅ All 34 tests pass (8 test files)
+- ✅ Vite build succeeds (347ms)
+- ✅ TypeScript compilation clean (`tsc --noEmit`)
+- ✅ 13 new files created (6 components + 6 tests + 1 index)
+
+**Design Patterns**:
+- Used controlled input pattern for ChatInput with local state
+- Used useRef + useEffect for scroll-to-bottom behavior in ChatMessageList
+- Used Record<Department, string> for color/label mappings in SourceCard
+- Used conditional rendering (sources.length === 0 return null) in SourceList
+
+**Category Insight**: unspecified-high (claude-sonnet-4.5) completed file creation successfully where visual-engineering (gemini) failed silently. Claude model was more reliable for this UI component creation task.
+
