@@ -1,19 +1,26 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import type { ChatMessage, Department, AgentTrace } from '@/types/chat'
+import type { Department, AgentTrace } from '@/types/chat'
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type DepartmentType = 'it_support' | 'legal' | 'credit_card' | 'airport_ground' | 'auto'
 
 interface ChatStore {
   messages: ChatMessage[]
   isLoading: boolean
-  department: Department | 'auto'
+  department: DepartmentType
   sessionId: string
   agentTrace: AgentTrace | null
-  addMessage: (message: ChatMessage) => void
+  addMessage: (role: 'user' | 'assistant', content: string) => void
+  updateLastMessage: (content: string) => void
   setLoading: (loading: boolean) => void
-  setDepartment: (dept: Department | 'auto') => void
-  setSessionId: (id: string) => void
-  setAgentTrace: (trace: AgentTrace | null) => void
+  setDepartment: (dept: DepartmentType) => void
   clearMessages: () => void
+  setAgentTrace: (trace: AgentTrace | null) => void
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -23,20 +30,29 @@ export const useChatStore = create<ChatStore>()(
         messages: [],
         isLoading: false,
         department: 'auto',
-        sessionId: '',
+        sessionId: crypto.randomUUID(),
         agentTrace: null,
-        addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+        addMessage: (role, content) =>
+          set((state) => ({
+            messages: [...state.messages, { role, content }],
+          })),
+        updateLastMessage: (content) =>
+          set((state) => {
+            const messages = [...state.messages]
+            if (messages.length > 0) {
+              messages[messages.length - 1].content += content
+            }
+            return { messages }
+          }),
         setLoading: (loading) => set({ isLoading: loading }),
         setDepartment: (dept) => set({ department: dept }),
-        setSessionId: (id) => set({ sessionId: id }),
-        setAgentTrace: (trace) => set({ agentTrace: trace }),
         clearMessages: () => set({ messages: [] }),
+        setAgentTrace: (trace) => set({ agentTrace: trace }),
       }),
       {
         name: 'chat-store',
         partialize: (state) => ({ sessionId: state.sessionId }),
       }
-    ),
-    { name: 'ChatStore' }
+    )
   )
 )

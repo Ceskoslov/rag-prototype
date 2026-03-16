@@ -1,78 +1,154 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useChatStore } from '../chatStore'
 
-describe('chatStore', () => {
+describe('useChatStore', () => {
   beforeEach(() => {
-    useChatStore.getState().clearMessages()
+    useChatStore.setState({
+      messages: [],
+      isLoading: false,
+      department: 'auto',
+      agentTrace: null,
+    })
   })
 
-  it('should have initial state', () => {
-    const store = useChatStore.getState()
-    expect(store.messages).toEqual([])
-    expect(store.isLoading).toBe(false)
-    expect(store.department).toBe('auto')
-    expect(store.sessionId).toBe('')
-    expect(store.agentTrace).toBeNull()
-  })
-
-  it('should add a message', () => {
-    const store = useChatStore.getState()
-    const message = {
-      id: '1',
-      role: 'user' as const,
-      content: 'Hello',
-      timestamp: new Date().toISOString(),
-    }
-
-    store.addMessage(message)
-
-    const updatedStore = useChatStore.getState()
-    expect(updatedStore.messages).toHaveLength(1)
-    expect(updatedStore.messages[0]).toEqual(message)
-  })
-
-  it('should set loading state', () => {
-    const store = useChatStore.getState()
-    store.setLoading(true)
-
-    let updatedStore = useChatStore.getState()
-    expect(updatedStore.isLoading).toBe(true)
-
-    store.setLoading(false)
-    updatedStore = useChatStore.getState()
-    expect(updatedStore.isLoading).toBe(false)
-  })
-
-  it('should set department', () => {
-    const store = useChatStore.getState()
-    store.setDepartment('it_support')
-
-    const updatedStore = useChatStore.getState()
-    expect(updatedStore.department).toBe('it_support')
-  })
-
-  it('should set session id', () => {
-    const store = useChatStore.getState()
-    store.setSessionId('session-123')
-
-    const updatedStore = useChatStore.getState()
-    expect(updatedStore.sessionId).toBe('session-123')
-  })
-
-  it('should clear messages', () => {
-    const store = useChatStore.getState()
-    store.addMessage({
-      id: '1',
-      role: 'user',
-      content: 'Test',
-      timestamp: new Date().toISOString(),
+  describe('addMessage', () => {
+    it('should add a user message', () => {
+      const { addMessage } = useChatStore.getState()
+      addMessage('user', 'Hello')
+      expect(useChatStore.getState().messages).toHaveLength(1)
+      expect(useChatStore.getState().messages[0]).toEqual({
+        role: 'user',
+        content: 'Hello',
+      })
     })
 
-    let updatedStore = useChatStore.getState()
-    expect(updatedStore.messages).toHaveLength(1)
+    it('should add an assistant message', () => {
+      const { addMessage } = useChatStore.getState()
+      addMessage('assistant', 'Hi there')
+      expect(useChatStore.getState().messages).toHaveLength(1)
+      expect(useChatStore.getState().messages[0]).toEqual({
+        role: 'assistant',
+        content: 'Hi there',
+      })
+    })
 
-    store.clearMessages()
-    updatedStore = useChatStore.getState()
-    expect(updatedStore.messages).toHaveLength(0)
+    it('should append multiple messages', () => {
+      const { addMessage } = useChatStore.getState()
+      addMessage('user', 'Message 1')
+      addMessage('assistant', 'Response 1')
+      addMessage('user', 'Message 2')
+      expect(useChatStore.getState().messages).toHaveLength(3)
+    })
+  })
+
+  describe('updateLastMessage', () => {
+    it('should append content to the last message', () => {
+      const { addMessage, updateLastMessage } = useChatStore.getState()
+      addMessage('assistant', 'Hello')
+      updateLastMessage(' World')
+      expect(useChatStore.getState().messages[0].content).toBe('Hello World')
+    })
+
+    it('should do nothing if messages are empty', () => {
+      const { updateLastMessage } = useChatStore.getState()
+      updateLastMessage('text')
+      expect(useChatStore.getState().messages).toHaveLength(0)
+    })
+
+    it('should work for streaming multiple chunks', () => {
+      const { addMessage, updateLastMessage } = useChatStore.getState()
+      addMessage('assistant', '')
+      updateLastMessage('Chunk')
+      updateLastMessage(' 1')
+      updateLastMessage(' and')
+      updateLastMessage(' Chunk 2')
+      expect(useChatStore.getState().messages[0].content).toBe('Chunk 1 and Chunk 2')
+    })
+  })
+
+  describe('setLoading', () => {
+    it('should set loading state to true', () => {
+      useChatStore.getState().setLoading(true)
+      expect(useChatStore.getState().isLoading).toBe(true)
+    })
+
+    it('should set loading state to false', () => {
+      useChatStore.getState().setLoading(true)
+      useChatStore.getState().setLoading(false)
+      expect(useChatStore.getState().isLoading).toBe(false)
+    })
+  })
+
+  describe('setDepartment', () => {
+    it('should set department to it_support', () => {
+      useChatStore.getState().setDepartment('it_support')
+      expect(useChatStore.getState().department).toBe('it_support')
+    })
+
+    it('should set department to legal', () => {
+      useChatStore.getState().setDepartment('legal')
+      expect(useChatStore.getState().department).toBe('legal')
+    })
+
+    it('should set department to credit_card', () => {
+      useChatStore.getState().setDepartment('credit_card')
+      expect(useChatStore.getState().department).toBe('credit_card')
+    })
+
+    it('should set department to airport_ground', () => {
+      useChatStore.getState().setDepartment('airport_ground')
+      expect(useChatStore.getState().department).toBe('airport_ground')
+    })
+
+    it('should set department to auto', () => {
+      useChatStore.getState().setDepartment('auto')
+      expect(useChatStore.getState().department).toBe('auto')
+    })
+  })
+
+  describe('clearMessages', () => {
+    it('should clear all messages', () => {
+      const { addMessage, clearMessages } = useChatStore.getState()
+      addMessage('user', 'Message 1')
+      addMessage('assistant', 'Response 1')
+      expect(useChatStore.getState().messages).toHaveLength(2)
+      clearMessages()
+      expect(useChatStore.getState().messages).toHaveLength(0)
+    })
+
+    it('should be safe to clear when no messages exist', () => {
+      useChatStore.getState().clearMessages()
+      expect(useChatStore.getState().messages).toHaveLength(0)
+    })
+  })
+
+  describe('setAgentTrace', () => {
+    it('should set agent trace', () => {
+      const trace = { routed_to: 'it_support', sources: [] }
+      useChatStore.getState().setAgentTrace(trace)
+      expect(useChatStore.getState().agentTrace).toEqual(trace)
+    })
+
+    it('should clear agent trace by setting to null', () => {
+      const trace = { routed_to: 'legal', sources: [] }
+      useChatStore.getState().setAgentTrace(trace)
+      useChatStore.getState().setAgentTrace(null)
+      expect(useChatStore.getState().agentTrace).toBeNull()
+    })
+  })
+
+  describe('sessionId', () => {
+    it('should have a valid UUID sessionId', () => {
+      const { sessionId } = useChatStore.getState()
+      expect(typeof sessionId).toBe('string')
+      expect(sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    })
+
+    it('should persist sessionId across store resets', () => {
+      const initialSessionId = useChatStore.getState().sessionId
+      useChatStore.setState({ messages: [] })
+      const newSessionId = useChatStore.getState().sessionId
+      expect(newSessionId).toBe(initialSessionId)
+    })
   })
 })
