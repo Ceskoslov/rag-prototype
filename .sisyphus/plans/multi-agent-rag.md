@@ -2140,7 +2140,7 @@ Max Concurrent: 7 (Wave 1)
 
 ### Wave 5 — Production Polish (After Wave 4, 5 parallel)
 
-- [ ] 26. Docker Compose Production Config + Nginx SSE
+- [x] 26. Docker Compose Production Config + Nginx SSE
 
   **What to do**:
   - Finalize `docker-compose.yml` with production-ready configuration:
@@ -2239,7 +2239,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `docker-compose.yml`, `docker-compose.dev.yml`, `nginx/nginx.conf`
   - Pre-commit: `docker compose config --quiet`
 
-- [ ] 27. Frontend ↔ Backend Integration + SSE Wiring
+- [x] 27. Frontend ↔ Backend Integration + SSE Wiring
 
   **What to do**:
   - Wire frontend SSE hook to actual backend endpoints:

@@ -9,8 +9,6 @@ services:
       POSTGRES_USER: ${DB_USER:-rag_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-rag_password}
       POSTGRES_DB: ${DB_NAME:-rag_db}
-    ports:
-      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
@@ -33,8 +31,6 @@ services:
     image: redis:7-alpine
     container_name: rag_redis
     command: redis-server --appendonly yes
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:

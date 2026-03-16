@@ -61,7 +61,7 @@ def test_create_supervisor_graph_uses_expected_parameters(
     captured: dict[str, Any] = {}
 
     class FakeWorkflow:
-        def compile(self) -> str:
+        def compile(self, checkpointer: Any = None) -> str:
             return "compiled-graph"
 
     def fake_create_supervisor(**kwargs: Any) -> FakeWorkflow:

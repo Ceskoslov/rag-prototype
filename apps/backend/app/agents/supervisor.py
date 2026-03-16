@@ -14,31 +14,7 @@ from app.agents.department import create_all_agents
 from app.core.settings import settings
 from app.schemas.common import Department
 
-try:
-    from langgraph.checkpoint.postgres.aio import (
-        AsyncPostgresSaver as _AsyncPostgresSaver,
-    )
-except Exception:
-    _AsyncPostgresSaver = None
-
-
-class _FallbackAsyncPostgresSaver:
-    def __init__(self, conn_string: str) -> None:
-        self.conn_string = conn_string
-
-    @classmethod
-    def from_conn_string(cls, conn_string: str) -> "_FallbackAsyncPostgresSaver":
-        return cls(conn_string)
-
-    async def aget(self, config: dict[str, Any]) -> dict[str, Any] | None:
-        _ = config
-        return None
-
-    async def aput(self, config: dict[str, Any], checkpoint: dict[str, Any]) -> None:
-        _ = (config, checkpoint)
-
-
-AsyncPostgresSaver = _AsyncPostgresSaver or _FallbackAsyncPostgresSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 SUPERVISOR_SYSTEM_PROMPT = """
 You are a routing supervisor for SkyWing Airlines multi-agent system.
@@ -80,73 +56,13 @@ def create_supervisor_graph(
     )
     checkpointer: Any = AsyncPostgresSaver.from_conn_string(postgres_dsn)
 
-    class FallbackSupervisorGraph:
-        def __init__(self, ckpt: Any) -> None:
-            self._checkpointer = ckpt
-
-        async def ainvoke(
-            self,
-            state: dict[str, Any],
-            config: dict[str, Any] | None = None,
-        ) -> dict[str, Any]:
-            messages = list(state.get("messages", []))
-            prior: list[Any] = []
-
-            if (
-                self._checkpointer is not None
-                and config is not None
-                and hasattr(self._checkpointer, "aget")
-            ):
-                stored = await self._checkpointer.aget(config)
-                if isinstance(stored, dict):
-                    prior = list(stored.get("messages", []))
-
-            merged = [*prior, *messages]
-            result = {
-                "messages": merged,
-                "routing_decision": {
-                    "departments": [Department.IT_SUPPORT.value],
-                    "confidence": 0.8,
-                },
-            }
-
-            if (
-                self._checkpointer is not None
-                and config is not None
-                and hasattr(self._checkpointer, "aput")
-            ):
-                await self._checkpointer.aput(config, result)
-
-            return result
-
-        def invoke(
-            self,
-            state: dict[str, Any],
-            config: dict[str, Any] | None = None,
-        ) -> dict[str, Any]:
-            _ = config
-            messages = list(state.get("messages", []))
-            return {
-                "messages": messages,
-                "routing_decision": {
-                    "departments": [Department.IT_SUPPORT.value],
-                    "confidence": 0.8,
-                },
-            }
-
-    try:
-        workflow = create_supervisor(
-            agents=cast(list[CompiledStateGraph], list(department_agents.values())),
-            model=llm,
-            prompt=SUPERVISOR_SYSTEM_PROMPT,
-            output_mode="full_history",
-        )
-        try:
-            return workflow.compile(checkpointer=checkpointer)
-        except TypeError:
-            return workflow.compile()
-    except Exception:
-        return FallbackSupervisorGraph(checkpointer)
+    workflow = create_supervisor(
+        agents=cast(list[CompiledStateGraph], list(department_agents.values())),
+        model=llm,
+        prompt=SUPERVISOR_SYSTEM_PROMPT,
+        output_mode="full_history",
+    )
+    return workflow.compile(checkpointer=checkpointer)
 
 
 class SupervisorService:
