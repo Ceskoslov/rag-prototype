@@ -301,3 +301,317 @@ result.execute(insert(...))  # deprecated
 - Core utilities in `app/core/` (database, settings, dependencies)
 - Tests mirror source structure: `tests/models/` → `app/models/`
 - Separate conftest for test fixtures and initialization
+
+## Task 11: Parent-Child Chunking Pipeline
+
+- Effective two-stage markdown chunking pattern: run `MarkdownHeaderTextSplitter` first to preserve document structure, then apply `RecursiveCharacterTextSplitter` to enforce target chunk windows.
+- Parent/child retrieval hierarchy works cleanly when parent chunks use `chunk_size=1000, chunk_overlap=200` and child chunks use `chunk_size=200, chunk_overlap=50`; this creates coarse semantic containers with finer-grained retrieval units.
+- Persisted relationship metadata should be explicit and consistent: parent chunks carry `department`, `source_file`, `chunk_type=parent`, `chunk_index`; child chunks carry the same fields plus `parent_id` and `chunk_type=child`.
+- Normalizing enum-like metadata values to strings at chunk generation time avoids downstream mismatches between schema enums and vector-store metadata filters.
+
+## Task 10: Redis Document Store Implementation
+
+### LangChain BaseStore Interface
+- **Abstract methods required**: `mget`, `mset`, `mdelete`, `yield_keys`
+- **Return types matter**: `mget` returns `list[Optional[V]]` (None for missing keys)
+- **Batch-first design**: All methods work with sequences, not single values
+- **Prefix filtering**: `yield_keys(prefix=None)` must support optional prefix matching
+- **Type safety**: Use `BaseStore[str, Document]` for proper generic typing
+
+### Document Serialization Pattern
+- **JSON serialization**: Store as `{"page_content": str, "metadata": dict}`
+- **Minimal fields**: Only serialize `page_content` and `metadata` (not `id` or `type`)
+- **Nested metadata**: JSON handles nested dicts, lists, and primitives automatically
+- **Round-trip safety**: Deserialize using `Document(page_content=..., metadata=...)`
+
+### Testing with fakeredis
+- **Dependency injection**: Add `redis_client: Optional[redis.Redis]` parameter to `__init__`
+- **Test fixture pattern**: Create `FakeRedis(decode_responses=True)` instance
+- **Cleanup strategy**: Use `fake_redis.flushdb()` in fixture teardown
+- **Persistence testing**: Reuse same `FakeRedis` instance across multiple store objects
+- **No external dependencies**: fakeredis eliminates need for Redis server in CI
+
+### Redis Key Management
+- **Key format**: `{prefix}:{key}` (e.g., `docstore:it_support:doc123`)
+- **scan_iter for iteration**: Use `client.scan_iter(match=pattern)` for prefix filtering
+- **Pattern matching**: `prefix:*` for all, `prefix:user:*` for filtered
+- **Key stripping**: Remove prefix when yielding keys: `redis_key[len(prefix) + 1:]`
+- **DB separation**: Use DB 0 for docstore (ARQ uses DB 1)
+
+### API Design Patterns
+- **Optional parameters**: `redis_url` has default for production, `redis_client` for testing
+- **Prefix namespacing**: Default `prefix="docstore"` for collision avoidance
+- **Empty sequence handling**: Return early for `if not keys` / `if not key_value_pairs`
+- **decode_responses=True**: Ensures Redis returns strings, not bytes
+
+### TDD Process Followed
+1. **Write tests first**: 5 tests covering all BaseStore methods
+2. **Red phase**: Tests fail with `ConnectionError` (tried real Redis)
+3. **Green phase**: Fixed with fakeredis dependency injection
+4. **Refactor**: Added optional `redis_client` parameter for flexibility
+
+### Files Delivered
+- ✓ `apps/backend/app/core/docstore.py` — RedisDocStore implementation (121 lines)
+- ✓ `apps/backend/tests/core/test_docstore.py` — Test suite (5 tests, all passing)
+- ✓ `.sisyphus/evidence/task-10-pytest-results.txt` — Full pytest output
+- ✓ `.sisyphus/evidence/task-10-verification.txt` — Implementation summary
+
+## Task 12: API Key Authentication & Health Check (2026-03-16)
+
+### FastAPI Security Dependencies Pattern
+- **Header validation**: Use `Header(None, alias="X-API-Key")` to accept missing headers without validation error
+- **Timing-safe comparison**: Always use `secrets.compare_digest()` for API key comparison (prevents timing attacks)
+- **HTTP status codes**:
+  - 401 Unauthorized: Missing/empty credentials → client should retry with auth
+  - 403 Forbidden: Invalid credentials → client is rejected
+
+### FastAPI Dependency Injection for Auth
+- **Dependency function**: Create async function `verify_api_key()` and use with `Depends()`
+
+## Task 9: ChromaRepository + Batch Insert Strategy (2026-03-16)
+
+- Chroma department collections should use deterministic names: `{department}_knowledge_base` (normalized to lowercase snake_case) to keep retrieval routing simple and predictable.
+- For API server usage, initialize production vector client with `chromadb.HttpClient(host="chromadb", port=8000)` so Docker service DNS resolves consistently inside the compose network.
+- Large inserts must always go through `chromadb.utils.batch_utils.create_batches(api=client, ids=..., metadatas=..., documents=...)` to respect Chroma/SQLite parameter limits (notably ~41,666 record ceiling).
+- Batch utility returns tuples in this order: `(ids, embeddings, metadatas, documents)`; repository add loops should preserve that order when calling `collection.add(...)`.
+- Repository contract should explicitly enforce operational rule: writes are serialized via ARQ worker (single-writer model) to avoid concurrent write contention.
+- **Reusability**: Attach to any endpoint with `@app.get("/protected", dependencies=[Depends(verify_api_key)])`
+- **Return value**: Dependency can return the validated key for use in handler
+- **Error handling**: Raise HTTPException to return proper error responses
+
+### Health Check Endpoint Design
+- **Standard path**: Use `/api/v1/health` for version-scoped health checks
+- **Status indicator**: Single "status" field: "ok" (healthy) or "degraded"/"unavailable"
+- **Service breakdown**: "services" dict with individual service status
+- **Always accessible**: Health endpoints should be exempt from authentication
+- **Fast responses**: Return mock/local checks initially, integrate real connectivity checks later
+
+### Response Structure Pattern
+```python
+class HealthResponse(BaseModel):
+    status: str
+    services: dict[str, str]
+```
+- Use Pydantic for automatic JSON serialization
+- Include meaningful service names (redis, chromadb, postgres)
+
+### TDD for Security Features
+- **Test missing credential**: Verify 401 response
+- **Test invalid credential**: Verify 403 response  
+- **Test valid credential**: Verify 200 OK
+- **Test timing safety**: Ensure wrong keys are rejected consistently (no timing info leakage)
+- **Test case sensitivity**: Verify comparison is case-sensitive if key contains letters
+
+### Configuration Pattern
+- **Settings file**: Add security config to `app/core/settings.py`
+- **Environment override**: Use `os.getenv("API_KEY", "default-key")`
+- **Separation**: Keep auth config separate from database/service configs
+
+### Test Client Usage with Async
+- **FastAPI TestClient**: Works with async endpoints (internally runs event loop)
+- **Header passing**: `client.get("/path", headers={"X-API-Key": "value"})`
+- **Status assertions**: Check `response.status_code` directly
+- **JSON parsing**: Use `response.json()` for structured assertion
+
+### Project Structure for Middleware
+- `app/middleware/auth.py` — Authentication dependencies
+- `app/routers/health.py` — Health check and diagnostic endpoints
+- Both packages need `__init__.py` to be importable
+- Mirror test structure: `tests/middleware/`, `tests/routers/`
+
+### Files Created (Task 12)
+- ✓ `apps/backend/app/middleware/auth.py` — `verify_api_key()` dependency
+- ✓ `apps/backend/app/routers/health.py` — Health check endpoint router
+- ✓ `apps/backend/tests/middleware/test_auth.py` — 6 auth tests
+- ✓ `apps/backend/tests/routers/test_health.py` — 10 health endpoint tests
+- ✓ Modified `apps/backend/app/core/settings.py` — Added `api_key` field
+- ✓ `.sisyphus/evidence/task-12-auth-health.txt` — Full evidence log
+
+### Test Results
+- **16/16 tests PASSING** (6 auth + 10 health)
+- Timing-safe comparison verified
+- Case-sensitive comparison verified
+- All HTTP status codes correct
+
+## Task 13: Async Repository Pattern Implementation
+
+### Repository Layer Best Practices
+
+**1. Async Session Management Pattern**
+- Inject `AsyncSession` as constructor parameter, not factory
+- Repository doesn't manage session lifecycle - caller controls context
+- Pattern: `repo = ConversationRepository(session)` inside `async with session():`
+- Enables transaction control at service layer, not repository layer
+
+**2. flush() vs commit() in Repositories**
+- Use `await session.flush()` to persist within transaction WITHOUT committing
+- Allows caller to batch multiple operations in single transaction
+- Use `await session.refresh(obj)` after flush to populate auto-generated IDs
+- Never call `commit()` in repository methods - that's service layer responsibility
+
+**3. Query Result Extraction Methods**
+- `scalar_one()`: Exactly one result, raises if zero or multiple
+- `scalar_one_or_none()`: Zero or one result, None if empty, raises if multiple
+- `scalars().all()`: Returns list of ORM objects from first column
+- Use `list(result.scalars().all())` for type checker satisfaction
+
+**4. get_or_create Pattern**
+```python
+async def get_or_create_conversation(self, session_id: str, department: str):
+    conv = await self.get_conversation(session_id)
+    if conv:
+        return conv
+    return await self.create_conversation(session_id, department)
+```
+- Check existence first, return if found
+- Create only if not exists
+- No race condition in tests (single-threaded SQLite)
+- Production needs UNIQUE constraint + exception handling for concurrency
+
+**5. Pagination with SQLAlchemy**
+- Use `.limit(n).offset(m)` for pagination
+- Default limit prevents unbounded queries: `limit: int = 100`
+- Offset for page skipping: `limit=20, offset=40` → page 3
+
+**6. Ordering for Context Windows**
+- Retrieve recent messages: `order_by(desc(Message.id)).limit(10)`
+- Reverse list for chronological order: `messages.reverse()`
+- Pattern: DESC query + reverse = efficient "last N in order"
+
+**7. Dict Serialization for LangChain**
+- Return `List[Dict[str, Any]]` not ORM objects for integration layers
+- Format: `{"role": msg.role, "content": msg.content}`
+- Matches LangChain ChatMessage schema expectations
+- Explicit serialization better than ORM leakage
+
+**8. Testing Async Repositories**
+- Use `pytest_asyncio.fixture` for session factory
+- In-memory SQLite with `StaticPool` for test isolation
+- Each test gets fresh database via fixture scope
+- `await session.refresh(obj, ["relationship"])` to test lazy-loaded relations
+
+**9. Method Specialization**
+- Separate `add_message()` (generic) from `save_agent_response()` (specialized)
+- `save_agent_response()` hardcodes `role="assistant"` for clarity
+- Composition over conditional parameters
+
+**10. Type Hints for Repository Methods**
+- Return concrete types: `-> Conversation` not `-> dict`
+- Use `Optional[Model]` for nullable returns (get operations)
+- List types for collections: `-> List[Message]`
+- Dict types for serialized data: `-> List[Dict[str, Any]]`
+
+### SQLAlchemy 2.0 Async Patterns (Reinforced)
+
+**Query Execution Flow**
+```python
+# 1. Build statement
+stmt = select(Message).where(Message.conversation_id == conv_id)
+
+# 2. Execute with session
+result = await session.execute(stmt)
+
+# 3. Extract results
+messages = result.scalars().all()
+```
+
+**Relationship Loading**
+- Relationships are NOT auto-loaded in async mode
+- Use `selectinload()` for eager loading: `select(A).options(selectinload(A.bs))`
+- Or use `await obj.awaitable_attrs.relationship_name` for lazy load
+
+**Session Operations**
+- `session.add(obj)` - Mark for INSERT
+- `await session.flush()` - Execute pending SQL without commit
+- `await session.commit()` - Commit transaction
+- `await session.refresh(obj)` - Reload from database
+- `await session.refresh(obj, ["attr"])` - Load specific attributes
+
+### TDD Workflow Lessons
+
+**RED-GREEN-REFACTOR Applied**
+1. **RED**: Wrote 10 test cases covering all methods and edge cases
+2. **GREEN**: Implemented minimal repository to pass all tests
+3. **REFACTOR**: (skipped - implementation already clean)
+
+**Test Coverage Strategy**
+- Individual CRUD operations (create, get, add, retrieve)
+- Edge cases (not found, duplicates)
+- Complex operations (pagination, ordering, context retrieval)
+- Full lifecycle integration test
+
+**Test Naming Convention**
+- `test_<method>` for happy path
+- `test_<method>_<edge_case>` for edge cases
+- `test_full_<domain>_lifecycle` for integration
+
+### Dependencies and Integration Points
+
+**Blocks Tasks**
+- Task 21: Chat Service (will use ConversationRepository for state management)
+- Task 24: RAGAS Evaluation (will use get_messages_for_context for test data)
+
+**Uses Components**
+- Task 7: Conversation and Message models
+- pytest-asyncio fixtures from conftest.py
+- SQLAlchemy 2.0 async engine from app.core.database
+
+### Files Delivered
+
+- ✓ `app/repositories/conversation.py` — 116 lines, 7 public methods
+- ✓ `tests/repositories/test_conversation.py` — 310 lines, 10 test cases
+- ✓ Both `__init__.py` files for proper package structure
+- ✓ `.sisyphus/evidence/task-13-*.txt` — QA verification artifacts
+
+### Technical Debt / Future Enhancements
+
+- No concurrency handling in get_or_create (UNIQUE constraint will raise in production)
+- No caching layer (intentionally deferred per spec)
+- No soft deletes (hard deletes via cascade)
+- Pagination lacks total count (requires separate COUNT query)
+
+## Task 8: Embedding Factory (local BGE + Azure)
+- Implemented provider-switched embedding factory in `app/core/embeddings.py` with singleton cache keyed by provider (`local`, `azure`) to avoid repeated expensive model construction.
+- Local provider initialization uses `HuggingFaceBgeEmbeddings` with exact production config: model `BAAI/bge-base-en-v1.5`, CPU device, and `normalize_embeddings=True` for cosine-similarity-ready vectors.
+- Azure provider initialization uses `AzureOpenAIEmbeddings(azure_deployment=..., azure_endpoint=..., api_key=...)` and wraps API key with `SecretStr` for type-safe constructor compatibility.
+- Added `clear_embedding_model_cache()` utility used by tests to prevent cache bleed between test cases while preserving runtime singleton behavior.
+- Testing pattern for embeddings: monkeypatch embedding classes to avoid external calls, assert constructor kwargs exactly, and validate output dimensions via deterministic fake vectors (768 local, 1536 azure).
+- Added runtime QA evidence pattern: capture pytest output + direct local dimension smoke check + invalid provider traceback in `.sisyphus/evidence/task-8-*.txt`.
+
+## Wave 2 Verification and Type Safety (2026-03-16)
+
+### Repository Type Consistency
+- **Type hint mismatch discovered**: `ConversationRepository.add_message` had `sources: Optional[Dict[str, Any]]` but `save_agent_response` passed `sources: Optional[List[Dict[str, Any]]]`
+- **Root cause**: Message model uses `sources: Mapped[Optional[dict]]` which is SQLAlchemy JSON field that accepts any JSON structure (including lists)
+- **Fix**: Changed `add_message` signature to `sources: Optional[List[Dict[str, Any]]]` for consistency across repository methods
+- **Lesson**: SQLAlchemy JSON columns are permissive - enforce structure via type hints and tests, not at database level
+
+### Wave 2 Verification Protocol Executed
+1. **Read all implementation files** (embeddings, vectorstore, docstore, chunking, auth, health, conversation)
+2. **Run full test suite**: 96/96 tests passing
+3. **LSP diagnostics**: Found and fixed type mismatch in conversation.py
+4. **Grep for TODOs/FIXMEs**: None found
+5. **Git commit**: Atomic commit with 55 files (2,282 insertions)
+6. **Plan update**: Marked Tasks 8-13 complete
+
+### ChromaDB Repository Verification (Task 9)
+- **Implementation confirmed complete**: 147 lines
+- **Batch operations working**: Uses `chromadb.utils.batch_utils.create_batches`
+- **Test coverage**: 6 tests covering collection creation, batch adds, similarity search, deletion, large payload batching, HTTP client defaults
+- **Collection naming**: Department-specific format `{department}_knowledge_base` (snake_case)
+- **Production client**: Uses `chromadb.HttpClient(host="chromadb", port=8000)` for Docker networking
+
+### Testing Completeness
+- **Total tests**: 96 passing
+  - 40 schema tests
+  - 9 model tests
+  - 5 embedding tests
+  - 5 docstore tests
+  - 6 vectorstore tests
+  - 5 chunking tests
+  - 6 auth tests
+  - 10 health tests
+  - 10 conversation tests
+- **Warnings**: 113 deprecation warnings (acceptable - from SQLAlchemy datetime.utcnow and pytest-asyncio)
+- **Evidence files**: 12 evidence files saved for Tasks 8-13 + wave-2-full-test-run.txt
+
