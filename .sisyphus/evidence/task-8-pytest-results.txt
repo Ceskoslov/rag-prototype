@@ -1,0 +1,20 @@
+/home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.6.0 -- /home/boxinliu/rebuild_project/apps/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/boxinliu/rebuild_project/apps/backend
+configfile: pytest.ini
+plugins: cov-6.0.0, anyio-4.12.1, asyncio-0.25.2
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None
+collecting ... collected 5 items
+
+tests/core/test_embeddings.py::test_get_embedding_model_local_returns_bge_with_required_config PASSED [ 20%]
+tests/core/test_embeddings.py::test_get_embedding_model_azure_returns_azure_with_required_config PASSED [ 40%]
+tests/core/test_embeddings.py::test_get_embedding_model_returns_singleton_per_provider PASSED [ 60%]
+tests/core/test_embeddings.py::test_embedding_dimensions_match_expected_provider_output PASSED [ 80%]
+tests/core/test_embeddings.py::test_get_embedding_model_invalid_provider_raises_value_error PASSED [100%]
+
+============================== 5 passed in 1.47s ===============================

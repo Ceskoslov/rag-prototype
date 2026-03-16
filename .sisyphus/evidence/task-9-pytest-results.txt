@@ -1,0 +1,17 @@
+Command: uv run pytest tests/repositories/test_vectorstore.py
+Date: 2026-03-16
+
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.6.0
+rootdir: /home/boxinliu/rebuild_project/apps/backend
+plugins: cov-6.0.0, anyio-4.12.1, asyncio-0.25.2
+collecting ... collected 6 items
+
+tests/repositories/test_vectorstore.py::test_create_collection_creates_collection PASSED
+tests/repositories/test_vectorstore.py::test_add_documents_adds_documents_in_batches PASSED
+tests/repositories/test_vectorstore.py::test_similarity_search_returns_k_results PASSED
+tests/repositories/test_vectorstore.py::test_delete_collection_removes_collection PASSED
+tests/repositories/test_vectorstore.py::test_add_documents_uses_create_batches_for_large_payload PASSED
+tests/repositories/test_vectorstore.py::test_production_client_uses_http_defaults PASSED
+
+============================== 6 passed in 8.73s ==============================

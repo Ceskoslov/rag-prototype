@@ -1,0 +1,74 @@
+## Task 12: API Key Authentication & Health Check
+
+**Date:** 2026-03-16
+**Status:** ✓ Complete
+
+### Test Results
+
+All 16 tests PASSED:
+
+#### Auth Middleware Tests (6/6)
+- ✓ test_auth_valid_api_key: Valid key allows access (200 OK)
+- ✓ test_auth_missing_api_key: Missing key returns 401
+- ✓ test_auth_invalid_api_key: Invalid key returns 403
+- ✓ test_auth_empty_api_key: Empty key returns 401
+- ✓ test_auth_timing_safe_comparison: Timing-safe comparison verified
+- ✓ test_auth_case_sensitive: Case-sensitive comparison enforced
+
+#### Health Endpoint Tests (10/10)
+- ✓ test_health_endpoint_exists: GET /api/v1/health responds
+- ✓ test_health_endpoint_returns_json: Valid JSON response
+- ✓ test_health_status_field_exists: "status" field present
+- ✓ test_health_services_field_exists: "services" field present
+- ✓ test_health_services_includes_redis: redis service status
+- ✓ test_health_services_includes_chromadb: chromadb service status
+- ✓ test_health_services_includes_postgres: postgres service status
+- ✓ test_health_no_auth_required: Endpoint exempt from auth
+- ✓ test_health_status_ok_when_healthy: Returns "ok" when healthy
+- ✓ test_health_status_degraded_when_services_fail: Response structure valid
+
+### Implementation Details
+
+1. **API Key Verification** (`apps/backend/app/middleware/auth.py`)
+   - FastAPI dependency: `verify_api_key(x_api_key: str = Header(None, alias="X-API-Key"))`
+   - Timing-safe comparison: `secrets.compare_digest()`
+   - Response codes:
+     - 401: Missing/empty API key
+     - 403: Invalid API key
+
+2. **Health Check Endpoint** (`apps/backend/app/routers/health.py`)
+   - Route: `GET /api/v1/health`
+   - Response: `{"status": "ok", "services": {"redis": "ok", "chromadb": "ok", "postgres": "ok"}}`
+   - Exempt from authentication
+
+3. **Settings Configuration** (`apps/backend/app/core/settings.py`)
+   - Added `api_key: str` field
+   - Default: "test-api-key-12345"
+   - Environment variable: `API_KEY`
+
+### TDD Methodology
+- RED phase: Tests written first (all 16 tests created)
+- GREEN phase: Implementation added, all tests pass
+- REFACTOR: Minor header handling refinement to handle empty/missing keys
+
+### Files Created
+- ✓ `apps/backend/app/middleware/auth.py` (27 lines)
+- ✓ `apps/backend/app/routers/health.py` (28 lines)
+- ✓ `apps/backend/tests/middleware/__init__.py`
+- ✓ `apps/backend/tests/middleware/test_auth.py` (89 lines)
+- ✓ `apps/backend/tests/routers/__init__.py`
+- ✓ `apps/backend/tests/routers/test_health.py` (89 lines)
+
+### Files Modified
+- ✓ `apps/backend/app/core/settings.py` (added api_key field)
+
+### Test Execution
+```
+pytest tests/middleware/test_auth.py tests/routers/test_health.py -v
+Result: 16 passed in 0.54s
+```
+
+### Security Features
+- Timing-safe string comparison prevents timing attacks
+- Case-sensitive key comparison
+- Clear HTTP status code semantics (401 vs 403)

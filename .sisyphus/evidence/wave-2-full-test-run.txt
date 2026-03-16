@@ -1,0 +1,135 @@
+/home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.6.0 -- /home/boxinliu/rebuild_project/apps/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/boxinliu/rebuild_project/apps/backend
+configfile: pytest.ini
+plugins: cov-6.0.0, anyio-4.12.1, asyncio-0.25.2
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None
+collecting ... collected 96 items
+
+tests/core/test_docstore.py::test_mset_and_mget PASSED                   [  1%]
+tests/core/test_docstore.py::test_mdelete PASSED                         [  2%]
+tests/core/test_docstore.py::test_yield_keys PASSED                      [  3%]
+tests/core/test_docstore.py::test_persistence_across_instances PASSED    [  4%]
+tests/core/test_docstore.py::test_document_with_complex_metadata PASSED  [  5%]
+tests/core/test_embeddings.py::test_get_embedding_model_local_returns_bge_with_required_config PASSED [  6%]
+tests/core/test_embeddings.py::test_get_embedding_model_azure_returns_azure_with_required_config PASSED [  7%]
+tests/core/test_embeddings.py::test_get_embedding_model_returns_singleton_per_provider PASSED [  8%]
+tests/core/test_embeddings.py::test_embedding_dimensions_match_expected_provider_output PASSED [  9%]
+tests/core/test_embeddings.py::test_get_embedding_model_invalid_provider_raises_value_error PASSED [ 10%]
+tests/middleware/test_auth.py::test_auth_valid_api_key PASSED            [ 11%]
+tests/middleware/test_auth.py::test_auth_missing_api_key PASSED          [ 12%]
+tests/middleware/test_auth.py::test_auth_invalid_api_key PASSED          [ 13%]
+tests/middleware/test_auth.py::test_auth_empty_api_key PASSED            [ 14%]
+tests/middleware/test_auth.py::test_auth_timing_safe_comparison PASSED   [ 15%]
+tests/middleware/test_auth.py::test_auth_case_sensitive PASSED           [ 16%]
+tests/models/test_models.py::test_conversation_creation PASSED           [ 17%]
+tests/models/test_models.py::test_message_creation PASSED                [ 18%]
+tests/models/test_models.py::test_message_with_sources_and_trace PASSED  [ 19%]
+tests/models/test_models.py::test_evaluation_result_creation PASSED      [ 20%]
+tests/models/test_models.py::test_conversation_message_relationship PASSED [ 21%]
+tests/models/test_models.py::test_message_cascade_delete PASSED          [ 22%]
+tests/models/test_models.py::test_evaluation_cascade_delete PASSED       [ 23%]
+tests/models/test_models.py::test_message_role_validation PASSED         [ 25%]
+tests/models/test_models.py::test_multiple_evaluation_results_per_conversation PASSED [ 26%]
+tests/repositories/test_conversation.py::test_create_conversation PASSED [ 27%]
+tests/repositories/test_conversation.py::test_get_conversation PASSED    [ 28%]
+tests/repositories/test_conversation.py::test_get_conversation_not_found PASSED [ 29%]
+tests/repositories/test_conversation.py::test_add_message PASSED         [ 30%]
+tests/repositories/test_conversation.py::test_get_messages PASSED        [ 31%]
+tests/repositories/test_conversation.py::test_get_or_create_conversation_new PASSED [ 32%]
+tests/repositories/test_conversation.py::test_get_or_create_conversation_existing PASSED [ 33%]
+tests/repositories/test_conversation.py::test_get_messages_for_context PASSED [ 34%]
+tests/repositories/test_conversation.py::test_save_agent_response PASSED [ 35%]
+tests/repositories/test_conversation.py::test_full_conversation_lifecycle PASSED [ 36%]
+tests/repositories/test_vectorstore.py::test_create_collection_creates_collection PASSED [ 37%]
+tests/repositories/test_vectorstore.py::test_add_documents_adds_documents_in_batches PASSED [ 38%]
+tests/repositories/test_vectorstore.py::test_similarity_search_returns_k_results PASSED [ 39%]
+tests/repositories/test_vectorstore.py::test_delete_collection_removes_collection PASSED [ 40%]
+tests/repositories/test_vectorstore.py::test_add_documents_uses_create_batches_for_large_payload PASSED [ 41%]
+tests/repositories/test_vectorstore.py::test_production_client_uses_http_defaults PASSED [ 42%]
+tests/routers/test_health.py::test_health_endpoint_exists PASSED         [ 43%]
+tests/routers/test_health.py::test_health_endpoint_returns_json PASSED   [ 44%]
+tests/routers/test_health.py::test_health_status_field_exists PASSED     [ 45%]
+tests/routers/test_health.py::test_health_services_field_exists PASSED   [ 46%]
+tests/routers/test_health.py::test_health_services_includes_redis PASSED [ 47%]
+tests/routers/test_health.py::test_health_services_includes_chromadb PASSED [ 48%]
+tests/routers/test_health.py::test_health_services_includes_postgres PASSED [ 50%]
+tests/routers/test_health.py::test_health_no_auth_required PASSED        [ 51%]
+tests/routers/test_health.py::test_health_status_ok_when_healthy PASSED  [ 52%]
+tests/routers/test_health.py::test_health_status_degraded_when_services_fail PASSED [ 53%]
+tests/schemas/test_schemas.py::TestDepartmentEnum::test_all_departments_present PASSED [ 54%]
+tests/schemas/test_schemas.py::TestDepartmentEnum::test_department_values_are_snake_case PASSED [ 55%]
+tests/schemas/test_schemas.py::TestDepartmentEnum::test_department_enum_members PASSED [ 56%]
+tests/schemas/test_schemas.py::TestChatRequest::test_valid_request_minimal PASSED [ 57%]
+tests/schemas/test_schemas.py::TestChatRequest::test_valid_request_with_all_fields PASSED [ 58%]
+tests/schemas/test_schemas.py::TestChatRequest::test_missing_required_message_field PASSED [ 59%]
+tests/schemas/test_schemas.py::TestChatRequest::test_message_must_be_string PASSED [ 60%]
+tests/schemas/test_schemas.py::TestChatRequest::test_department_must_be_enum PASSED [ 61%]
+tests/schemas/test_schemas.py::TestChatRequest::test_serialization_to_json PASSED [ 62%]
+tests/schemas/test_schemas.py::TestChatRequest::test_serialization_to_dict PASSED [ 63%]
+tests/schemas/test_schemas.py::TestAgentTrace::test_valid_agent_trace PASSED [ 64%]
+tests/schemas/test_schemas.py::TestAgentTrace::test_agent_trace_multiple_agents PASSED [ 65%]
+tests/schemas/test_schemas.py::TestAgentTrace::test_missing_required_fields PASSED [ 66%]
+tests/schemas/test_schemas.py::TestChatResponse::test_valid_response_minimal PASSED [ 67%]
+tests/schemas/test_schemas.py::TestChatResponse::test_response_confidence_range PASSED [ 68%]
+tests/schemas/test_schemas.py::TestChatResponse::test_response_sources_list PASSED [ 69%]
+tests/schemas/test_schemas.py::TestChatResponse::test_response_serialization PASSED [ 70%]
+tests/schemas/test_schemas.py::TestChatStreamEvent::test_valid_stream_token_event PASSED [ 71%]
+tests/schemas/test_schemas.py::TestChatStreamEvent::test_valid_stream_done_event PASSED [ 72%]
+tests/schemas/test_schemas.py::TestChatStreamEvent::test_stream_event_serialization PASSED [ 73%]
+tests/schemas/test_schemas.py::TestDocumentChunk::test_valid_chunk_minimal PASSED [ 75%]
+tests/schemas/test_schemas.py::TestDocumentChunk::test_valid_chunk_with_metadata PASSED [ 76%]
+tests/schemas/test_schemas.py::TestDocumentChunk::test_missing_required_id PASSED [ 77%]
+tests/schemas/test_schemas.py::TestDocumentChunk::test_missing_required_content PASSED [ 78%]
+tests/schemas/test_schemas.py::TestDocumentChunk::test_chunk_serialization PASSED [ 79%]
+tests/schemas/test_schemas.py::TestIngestionRequest::test_valid_ingestion_request PASSED [ 80%]
+tests/schemas/test_schemas.py::TestIngestionRequest::test_missing_required_fields PASSED [ 81%]
+tests/schemas/test_schemas.py::TestIngestionResult::test_valid_ingestion_result PASSED [ 82%]
+tests/schemas/test_schemas.py::TestIngestionResult::test_ingestion_result_with_error PASSED [ 83%]
+tests/schemas/test_schemas.py::TestRAGASMetrics::test_valid_ragas_metrics PASSED [ 84%]
+tests/schemas/test_schemas.py::TestRAGASMetrics::test_metrics_all_required PASSED [ 85%]
+tests/schemas/test_schemas.py::TestEvaluationRequest::test_valid_evaluation_request PASSED [ 86%]
+tests/schemas/test_schemas.py::TestEvaluationRequest::test_missing_conversation_id PASSED [ 87%]
+tests/schemas/test_schemas.py::TestEvaluationResult::test_valid_evaluation_result PASSED [ 88%]
+tests/schemas/test_schemas.py::TestEvaluationResult::test_evaluation_result_with_timestamp PASSED [ 89%]
+tests/schemas/test_schemas.py::TestHealthResponse::test_valid_health_response PASSED [ 90%]
+tests/schemas/test_schemas.py::TestHealthResponse::test_health_response_serialization PASSED [ 91%]
+tests/schemas/test_schemas.py::TestErrorResponse::test_valid_error_response PASSED [ 92%]
+tests/schemas/test_schemas.py::TestErrorResponse::test_error_response_with_details PASSED [ 93%]
+tests/schemas/test_schemas.py::TestErrorResponse::test_error_response_serialization PASSED [ 94%]
+tests/services/test_chunking.py::test_chunk_document_returns_parent_and_child_chunks PASSED [ 95%]
+tests/services/test_chunking.py::test_parent_chunks_are_approximately_1000_tokens PASSED [ 96%]
+tests/services/test_chunking.py::test_child_chunks_are_approximately_200_tokens PASSED [ 97%]
+tests/services/test_chunking.py::test_child_chunks_reference_parent_id PASSED [ 98%]
+tests/services/test_chunking.py::test_metadata_propagates_to_all_chunks PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/models/test_models.py::test_conversation_creation
+  /home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:867: DeprecationWarning: The event_loop fixture provided by pytest-asyncio has been redefined in
+  /home/boxinliu/rebuild_project/apps/backend/tests/conftest.py:11
+  Replacing the event_loop fixture with a custom implementation is deprecated
+  and will lead to errors in the future.
+  If you want to request an asyncio event loop with a scope other than function
+  scope, use the "loop_scope" argument to the asyncio mark when marking the tests.
+  If you want to return different types of event loops, use the event_loop_policy
+  fixture.
+  
+    warnings.warn(
+
+tests/models/test_models.py: 42 warnings
+tests/repositories/test_conversation.py: 68 warnings
+  /home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3596: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/schemas/test_schemas.py::TestEvaluationResult::test_valid_evaluation_result
+tests/schemas/test_schemas.py::TestEvaluationResult::test_evaluation_result_with_timestamp
+  /home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:214: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 96 passed, 113 warnings in 7.87s =======================

@@ -1,0 +1,28 @@
+Task 11 Verification Evidence
+Date: 2026-03-16
+
+Command: uv run pytest tests/services/test_chunking.py
+Result: PASSED
+
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.6.0
+collecting ... collected 5 items
+
+tests/services/test_chunking.py::test_chunk_document_returns_parent_and_child_chunks PASSED
+tests/services/test_chunking.py::test_parent_chunks_are_approximately_1000_tokens PASSED
+tests/services/test_chunking.py::test_child_chunks_are_approximately_200_tokens PASSED
+tests/services/test_chunking.py::test_child_chunks_reference_parent_id PASSED
+tests/services/test_chunking.py::test_metadata_propagates_to_all_chunks PASSED
+
+============================== 5 passed in 0.48s ===============================
+
+LSP Diagnostics:
+- apps/backend/app/services/chunking.py -> No diagnostics found
+- apps/backend/tests/services/test_chunking.py -> No diagnostics found
+
+Implementation Checks:
+- ChunkingService uses MarkdownHeaderTextSplitter as primary split strategy
+- Parent splitter uses RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+- Child splitter uses RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
+- Child chunks include parent_id metadata referencing generated parent chunk IDs
+- Metadata enrichment applied to all chunks: department, source_file, chunk_type, chunk_index

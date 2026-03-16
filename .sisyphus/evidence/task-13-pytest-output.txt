@@ -1,0 +1,43 @@
+/home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.6.0 -- /home/boxinliu/rebuild_project/apps/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/boxinliu/rebuild_project/apps/backend
+configfile: pytest.ini
+plugins: cov-6.0.0, anyio-4.12.1, asyncio-0.25.2
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None
+collecting ... collected 10 items
+
+tests/repositories/test_conversation.py::test_create_conversation PASSED [ 10%]
+tests/repositories/test_conversation.py::test_get_conversation PASSED    [ 20%]
+tests/repositories/test_conversation.py::test_get_conversation_not_found PASSED [ 30%]
+tests/repositories/test_conversation.py::test_add_message PASSED         [ 40%]
+tests/repositories/test_conversation.py::test_get_messages PASSED        [ 50%]
+tests/repositories/test_conversation.py::test_get_or_create_conversation_new PASSED [ 60%]
+tests/repositories/test_conversation.py::test_get_or_create_conversation_existing PASSED [ 70%]
+tests/repositories/test_conversation.py::test_get_messages_for_context PASSED [ 80%]
+tests/repositories/test_conversation.py::test_save_agent_response PASSED [ 90%]
+tests/repositories/test_conversation.py::test_full_conversation_lifecycle PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/repositories/test_conversation.py::test_create_conversation
+  /home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:867: DeprecationWarning: The event_loop fixture provided by pytest-asyncio has been redefined in
+  /home/boxinliu/rebuild_project/apps/backend/tests/conftest.py:11
+  Replacing the event_loop fixture with a custom implementation is deprecated
+  and will lead to errors in the future.
+  If you want to request an asyncio event loop with a scope other than function
+  scope, use the "loop_scope" argument to the asyncio mark when marking the tests.
+  If you want to return different types of event loops, use the event_loop_policy
+  fixture.
+  
+    warnings.warn(
+
+tests/repositories/test_conversation.py: 68 warnings
+  /home/boxinliu/rebuild_project/apps/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3596: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 10 passed, 69 warnings in -1.08s =======================
