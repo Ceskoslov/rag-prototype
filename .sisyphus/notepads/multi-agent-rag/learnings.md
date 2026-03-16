@@ -633,3 +633,17 @@ messages = result.scalars().all()
 - `retrieve_node` accepts retriever injection from `RunnableConfig.configurable.retriever` with fallback to constructor-provided retriever.
 - Retrieval call contract uses `invoke(query, config={"department": state["department"], "k": 5})`, aligned with HybridRetriever usage expectations.
 - Added tenacity retry wrapper for all LLM invocations (`generate`, `critique`, `rewrite`) using exponential backoff and bounded attempts.
+
+## Task 17: Department Agent Factory (2026-03-16)
+
+### create_react_agent Pattern
+- `create_react_agent` works well with one department-local `@tool` and a department-specific prompt; setting `name=f"{department.value}_agent"` gives deterministic agent identity for supervisor wiring.
+- LangChain tool conversion requires a tool docstring unless an explicit description is provided to `@tool(...)`; missing this fails at runtime during agent construction.
+
+### Tool Closure for Department Isolation
+- Defining `rag_search` inside `create_department_agent` cleanly captures `department` in closure and guarantees per-agent routing isolation (`department.value` passed into Self-RAG input).
+- Per-agent Self-RAG graph instances avoid cross-department state leakage and keep tool behavior deterministic for supervisor composition.
+
+### Integration with Self-RAG
+- Department tool should invoke Self-RAG with `{"query": query, "department": department.value}` and return `generation` with fallback.
+- In ReAct tests, fake chat model needs tool-call capable AIMessage output; otherwise agent loops can recurse due to unresolved tool-call flow.

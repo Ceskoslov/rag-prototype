@@ -1030,7 +1030,7 @@ Max Concurrent: 7 (Wave 1)
 
 ### Wave 3 — Agents + Retrieval (After Wave 2, 6 parallel)
 
-- [ ] 14. Hybrid Retriever (BM25 + Vector EnsembleRetriever)
+- [x] 14. Hybrid Retriever (BM25 + Vector EnsembleRetriever)
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/services/test_retrieval.py`:
@@ -1223,7 +1223,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/agents/self_rag.py`, `tests/agents/test_self_rag.py`
   - Pre-commit: `pytest tests/agents/test_self_rag.py`
 
-- [ ] 16. Document Ingestion Service + CLI Script
+- [x] 16. Document Ingestion Service + CLI Script
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/services/test_ingestion.py`:
@@ -1308,7 +1308,7 @@ Max Concurrent: 7 (Wave 1)
   - Files: `app/services/ingestion.py`, `scripts/ingest.py`, `tests/services/test_ingestion.py`
   - Pre-commit: `pytest tests/services/test_ingestion.py`
 
-- [ ] 17. Department Agent Factory (create_react_agent × 4)
+- [x] 17. Department Agent Factory (create_react_agent × 4)
 
   **What to do**:
   - **TDD: Write tests FIRST** in `tests/agents/test_department_agents.py`:
