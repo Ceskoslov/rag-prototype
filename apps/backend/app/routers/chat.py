@@ -4,13 +4,18 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.supervisor import create_supervisor_service
 from app.core.database import get_async_session
+from app.core.docstore import RedisDocStore
+from app.core.embeddings import get_embedding_model
+from app.core.llm import get_chat_model
+from app.core.settings import settings
+from app.repositories.vectorstore import ChromaRepository
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat import ChatService
+from app.services.retrieval import HybridRetriever
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
@@ -20,20 +25,16 @@ async def get_db() -> Any:
         yield session
 
 
-class NullRetriever:
-    def invoke(self, query: str, config: dict[str, Any] | None = None) -> list[Any]:
-        _ = (query, config)
-        return []
-
-
-def _default_supervisor() -> Any:
-    llm = FakeListChatModel(responses=["Acknowledged."])
-    retriever = NullRetriever()
+def _create_supervisor() -> Any:
+    llm = get_chat_model()
+    chroma_repo = ChromaRepository()
+    docstore = RedisDocStore(redis_url=settings.redis_url)
+    retriever = HybridRetriever(vector_repository=chroma_repo, docstore=docstore)
     return create_supervisor_service(llm=llm, retriever=retriever)
 
 
 async def get_chat_service(session: AsyncSession = Depends(get_db)) -> ChatService:
-    supervisor = _default_supervisor()
+    supervisor = _create_supervisor()
     return ChatService(session=session, supervisor=supervisor)
 
 

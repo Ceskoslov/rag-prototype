@@ -7,10 +7,9 @@ export type Department = 'it_support' | 'legal' | 'credit_card' | 'airport_groun
  * Retrieval source from agent trace
  */
 export interface RetrievalSource {
-  department: Department
+  department: string
   title: string
-  score: number
-  content: string
+  snippet: string
 }
 
 /**

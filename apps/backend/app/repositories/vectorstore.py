@@ -6,6 +6,8 @@ from chromadb.api import BaseAPI, ClientAPI
 from chromadb.api.types import IncludeEnum, Metadata
 from chromadb.utils.batch_utils import create_batches
 
+from app.core.settings import settings
+
 
 class ChromaCollection(Protocol):
     @property
@@ -43,7 +45,15 @@ class ChromaRepository:
 
     def __init__(self, client: ClientAPI | None = None) -> None:
         if client is None:
-            self.client: ClientAPI = chromadb.HttpClient(host="chromadb", port=8000)
+            chroma_url = settings.chroma_api_url
+            if chroma_url.startswith("http://"):
+                host = chroma_url.replace("http://", "").split(":")[0]
+                port_str = chroma_url.split(":")[-1].rstrip("/")
+                port = int(port_str) if port_str.isdigit() else 8000
+            else:
+                host = "localhost"
+                port = 8000
+            self.client: ClientAPI = chromadb.HttpClient(host=host, port=port)
             return
         self.client = client
 

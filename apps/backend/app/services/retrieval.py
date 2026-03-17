@@ -83,6 +83,17 @@ class HybridRetriever:
         self._bm25_indexes: dict[Department, BM25Okapi] = {}
         self._bm25_documents: dict[Department, list[Document]] = {}
 
+    def invoke(
+        self, query: str, config: dict[str, Any] | None = None
+    ) -> list[Document]:
+        department_str = (config or {}).get("department", "it_support")
+        k = (config or {}).get("k", 5)
+        try:
+            department = Department(department_str)
+        except ValueError:
+            department = Department.IT_SUPPORT
+        return self.retrieve(query, department, k=k)
+
     def retrieve(
         self, query: str, department: Department, k: int = 5
     ) -> list[Document]:

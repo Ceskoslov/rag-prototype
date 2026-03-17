@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, TypedDict, cast
 
+from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import tool
 from langgraph.graph.graph import CompiledGraph
@@ -82,6 +84,31 @@ def _extract_generation(result: Mapping[str, Any]) -> str:
     return str(generation)
 
 
+def _extract_source_metadata(result: Mapping[str, Any]) -> list[dict[str, str]]:
+    docs = result.get("documents")
+    if not isinstance(docs, list):
+        return []
+    sources: list[dict[str, str]] = []
+    seen_titles: set[str] = set()
+    for doc in docs:
+        if not isinstance(doc, Document):
+            continue
+        metadata = doc.metadata or {}
+        title = str(metadata.get("source_file", metadata.get("title", "unknown")))
+        if title in seen_titles:
+            continue
+        seen_titles.add(title)
+        snippet = doc.page_content[:200] if doc.page_content else ""
+        sources.append(
+            {
+                "title": title,
+                "snippet": snippet,
+                "department": str(metadata.get("department", "")),
+            }
+        )
+    return sources
+
+
 def create_department_agent(
     department: Department,
     llm: BaseChatModel,
@@ -105,7 +132,12 @@ def create_department_agent(
                 }
             ),
         )
-        return _extract_generation(result)
+        generation = _extract_generation(result)
+        sources = _extract_source_metadata(result)
+        return json.dumps(
+            {"answer": generation, "sources": sources},
+            ensure_ascii=False,
+        )
 
     return create_react_agent(
         model=llm,

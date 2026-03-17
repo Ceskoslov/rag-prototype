@@ -1,7 +1,11 @@
 {
   "active_plan": "/home/boxinliu/rebuild_project/.sisyphus/plans/multi-agent-rag.md",
   "started_at": "2026-03-16T05:43:32.599Z",
-  "session_ids": ["ses_30b00ce08ffezKwgwYfTSfBWgp"],
+  "session_ids": [
+    "ses_30b00ce08ffezKwgwYfTSfBWgp",
+    "ses_306e34e47ffewuS2zamN2pKpbJ",
+    "ses_306d7316affe0c7S5euFl5qmue"
+  ],
   "plan_name": "multi-agent-rag",
   "worktree_path": "/home/boxinliu/rebuild_project"
 }

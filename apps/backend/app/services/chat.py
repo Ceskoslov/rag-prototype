@@ -5,6 +5,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from langchain_core.messages import BaseMessage
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +18,18 @@ from app.schemas.chat import AgentTrace, ChatResponse
 from app.schemas.common import Department
 
 logger = get_logger(__name__)
+
+
+def _make_json_safe(obj: Any) -> Any:
+    if isinstance(obj, BaseMessage):
+        return {"type": obj.type, "content": str(obj.content)}
+    if isinstance(obj, dict):
+        return {k: _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_safe(item) for item in obj]
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    return str(obj)
 
 
 class ChatService:
@@ -57,11 +70,13 @@ class ChatService:
         )
 
         source_docs = self._extract_sources(result)
-        assistant_trace = {
-            "agent_traces": result.agent_traces,
-            "confidence": result.confidence,
-            "history_count": len(history),
-        }
+        assistant_trace = _make_json_safe(
+            {
+                "agent_traces": result.agent_traces,
+                "confidence": result.confidence,
+                "history_count": len(history),
+            }
+        )
         await self.conversation_repo.add_message(
             conversation_id=conversation.id,
             role="assistant",
@@ -119,20 +134,28 @@ class ChatService:
             return
 
         tokens = [token for token in result.answer.split(" ") if token]
-        for token in tokens:
-            yield self._sse({"type": "token", "content": token})
+        for i, token in enumerate(tokens):
+            content = token if i == 0 else " " + token
+            yield self._sse({"type": "token", "content": content})
 
         source_docs = self._extract_sources(result)
         yield self._sse({"type": "sources", "data": source_docs})
+
+        departments = [dept.value for dept in result.departments_used]
+        decision = ", ".join(departments) if departments else "unknown"
         yield self._sse(
-            {
-                "type": "trace",
-                "data": {
-                    "departments": [dept.value for dept in result.departments_used],
-                    "confidence": result.confidence,
-                    "agent_traces": result.agent_traces,
-                },
-            }
+            _make_json_safe(
+                {
+                    "type": "trace",
+                    "data": {
+                        "supervisor_decision": decision,
+                        "agents_invoked": departments or ["unknown"],
+                        "retrieval_sources": source_docs,
+                        "iterations": max(1, len(result.agent_traces)),
+                        "confidence": result.confidence,
+                    },
+                }
+            )
         )
 
         await self.conversation_repo.add_message(
@@ -140,11 +163,13 @@ class ChatService:
             role="assistant",
             content=result.answer,
             sources=source_docs,
-            trace={
-                "agent_traces": result.agent_traces,
-                "confidence": result.confidence,
-                "history_count": len(history),
-            },
+            trace=_make_json_safe(
+                {
+                    "agent_traces": result.agent_traces,
+                    "confidence": result.confidence,
+                    "history_count": len(history),
+                }
+            ),
         )
         await self.session.commit()
         yield self._sse({"type": "done"})
@@ -180,22 +205,63 @@ class ChatService:
     def _extract_sources(self, result: SupervisorResult) -> list[dict[str, Any]]:
         traces = result.agent_traces or []
         extracted: list[dict[str, Any]] = []
+        seen_titles: set[str] = set()
+
         for trace in traces:
             if not isinstance(trace, dict):
                 continue
+
+            # Try legacy format: trace has a top-level "sources" key
             raw_sources = trace.get("sources")
-            if not isinstance(raw_sources, list):
+            if isinstance(raw_sources, list):
+                for source in raw_sources:
+                    if isinstance(source, dict):
+                        title = str(source.get("title", "unknown"))
+                        if title not in seen_titles:
+                            seen_titles.add(title)
+                            extracted.append(
+                                {
+                                    "title": title,
+                                    "snippet": str(source.get("snippet", "")),
+                                    "department": str(source.get("department", "")),
+                                }
+                            )
+
+            # Parse ToolMessage content from agent messages for rag_search JSON output
+            messages = trace.get("messages")
+            if not isinstance(messages, list):
                 continue
-            for source in raw_sources:
-                if not isinstance(source, dict):
+            for msg in messages:
+                content = None
+                if isinstance(msg, BaseMessage) and msg.type == "tool":
+                    content = str(msg.content)
+                elif isinstance(msg, dict) and msg.get("type") == "tool":
+                    content = str(msg.get("content", ""))
+                if content is None:
                     continue
-                extracted.append(
-                    {
-                        "title": str(source.get("title", "unknown")),
-                        "snippet": str(source.get("snippet", "")),
-                        "department": str(source.get("department", "")),
-                    }
-                )
+                try:
+                    parsed = json.loads(content)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                if not isinstance(parsed, dict):
+                    continue
+                tool_sources = parsed.get("sources")
+                if not isinstance(tool_sources, list):
+                    continue
+                for source in tool_sources:
+                    if not isinstance(source, dict):
+                        continue
+                    title = str(source.get("title", "unknown"))
+                    if title not in seen_titles:
+                        seen_titles.add(title)
+                        extracted.append(
+                            {
+                                "title": title,
+                                "snippet": str(source.get("snippet", "")),
+                                "department": str(source.get("department", "")),
+                            }
+                        )
+
         return extracted
 
     async def _load_recent_history(self, conversation_id: int) -> list[Message]:

@@ -75,7 +75,7 @@ export const AgentTracePanel: React.FC<AgentTracePanelProps> = ({ trace }) => {
           {expandedSections.agents && (
             <div className="px-4 py-3 border-t border-gray-100">
               <div className="flex flex-wrap gap-2 mb-3">
-                {trace.agents_invoked.map((agent) => (
+                {(trace.agents_invoked ?? []).map((agent) => (
                   <span
                     key={agent}
                     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
@@ -104,14 +104,14 @@ export const AgentTracePanel: React.FC<AgentTracePanelProps> = ({ trace }) => {
           )}
         </div>
 
-        {trace.retrieval_sources.length > 0 && (
+        {(trace.retrieval_sources ?? []).length > 0 && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <button
               onClick={() => toggleSection('sources')}
               className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
             >
               <span className="font-medium text-gray-900">
-                Retrieval Sources ({trace.retrieval_sources.length})
+                Retrieval Sources ({(trace.retrieval_sources ?? []).length})
               </span>
               <span className="text-gray-400">
                 {expandedSections.sources ? '▼' : '▶'}
@@ -119,7 +119,7 @@ export const AgentTracePanel: React.FC<AgentTracePanelProps> = ({ trace }) => {
             </button>
             {expandedSections.sources && (
               <div className="px-4 py-3 border-t border-gray-100 space-y-3">
-                {trace.retrieval_sources.map((source, idx) => (
+                {(trace.retrieval_sources ?? []).map((source, idx) => (
                   <div
                     key={idx}
                     className="p-3 bg-gray-50 rounded-lg border border-gray-200"
@@ -136,12 +136,9 @@ export const AgentTracePanel: React.FC<AgentTracePanelProps> = ({ trace }) => {
                         {departmentLabels[source.department] || source.department}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-600">Relevance Score:</span>
-                      <span className="font-medium text-gray-900">
-                        {Math.round(source.score * 100)}%
-                      </span>
-                    </div>
+                    {source.snippet && (
+                      <p className="text-xs text-gray-600 line-clamp-2">{source.snippet}</p>
+                    )}
                   </div>
                 ))}
               </div>

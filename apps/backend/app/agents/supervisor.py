@@ -14,7 +14,7 @@ from app.agents.department import create_all_agents
 from app.core.settings import settings
 from app.schemas.common import Department
 
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.checkpoint.memory import MemorySaver
 
 SUPERVISOR_SYSTEM_PROMPT = """
 You are a routing supervisor for SkyWing Airlines multi-agent system.
@@ -51,10 +51,7 @@ def create_supervisor_graph(
     llm: BaseChatModel,
     department_agents: Mapping[Department, Any],
 ) -> Any:
-    postgres_dsn = settings.database_url.replace(
-        "postgresql+asyncpg://", "postgresql://"
-    )
-    checkpointer: Any = AsyncPostgresSaver.from_conn_string(postgres_dsn)
+    checkpointer = MemorySaver()
 
     workflow = create_supervisor(
         agents=cast(list[CompiledStateGraph], list(department_agents.values())),

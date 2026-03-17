@@ -1,25 +1,35 @@
 """Application settings and configuration."""
 
-import os
-from typing import Literal
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings:
-    """App settings from environment variables."""
+class Settings(BaseSettings):
+    """App settings loaded from environment variables and .env file."""
 
-    environment: str = os.getenv("ENVIRONMENT", "development")
-    database_url: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+asyncpg://rag_user:rag_password@localhost:5432/rag_db",
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
-    redis_url: str = os.getenv(
-        "REDIS_URL",
-        "redis://localhost:6379/0",
+
+    environment: str = "development"
+    database_url: str = (
+        "postgresql+asyncpg://rag_user:rag_password@localhost:5432/rag_db"
     )
-    api_key: str = os.getenv(
-        "API_KEY",
-        "test-api-key-12345",
-    )
+    redis_url: str = "redis://localhost:6379/0"
+    api_key: str = "test-api-key-12345"
+
+    azure_openai_endpoint: str | None = None
+    azure_openai_api_key: str | None = None
+    azure_openai_api_version: str = "2024-05-01-preview"
+    azure_openai_deployment_name: str | None = None
+    azure_openai_embedding_deployment: str | None = None
+
+    embedding_provider: str = "local"
+
+    chroma_api_url: str = "http://localhost:8000"
 
 
 settings = Settings()
