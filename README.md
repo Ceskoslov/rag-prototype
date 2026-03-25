@@ -374,12 +374,3 @@ curl -X POST http://localhost:8000/api/v1/evaluation/trigger \
   -H "X-API-Key: your-api-key" \
   -d '{"session_id": "demo-001"}'
 ```
-
----
-
-## 📜 License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-*Developed by SkyWing AI Engineering Team for Portfolio Demonstration.*
