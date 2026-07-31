@@ -1,25 +1,28 @@
 /**
- * Department enum matching backend Pydantic enum
+ * Dynamically discovered knowledge-base slug
  */
-export type Department = 'it_support' | 'legal' | 'credit_card' | 'airport_ground'
+export type KnowledgeBase = string
 
 /**
  * Retrieval source from agent trace
  */
 export interface RetrievalSource {
-  department: string
+  knowledge_base: string
   title: string
   snippet: string
+  source_path?: string
+  page?: number | null
+  score?: number
 }
 
 /**
  * Agent trace information from backend
  */
 export interface AgentTrace {
-  supervisor_decision: string
-  agents_invoked: string[]
+  knowledge_bases_searched: string[]
   retrieval_sources: RetrievalSource[]
   iterations: number
+  pipeline_steps: string[]
   confidence?: number
 }
 
@@ -31,7 +34,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
-  department?: Department
+  knowledge_base?: KnowledgeBase
   agent_trace?: AgentTrace | null
 }
 
@@ -41,7 +44,7 @@ export interface ChatMessage {
 export interface ChatRequest {
   message: string
   sessionId: string
-  department: Department | 'auto'
+  knowledge_base: KnowledgeBase | 'all'
 }
 
 /**
@@ -50,5 +53,6 @@ export interface ChatRequest {
 export interface ChatResponse {
   message: ChatMessage
   session_id: string
+  knowledge_bases: string[]
   suggestion_questions?: string[]
 }

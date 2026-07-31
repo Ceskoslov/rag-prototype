@@ -10,15 +10,13 @@ export interface ChatMessage {
 export interface SourceDocument {
   title: string
   snippet: string
-  department: string
+  knowledge_base: string
 }
-
-export type DepartmentType = 'it_support' | 'legal' | 'credit_card' | 'airport_ground' | 'auto'
 
 interface ChatStore {
   messages: ChatMessage[]
   isLoading: boolean
-  department: DepartmentType
+  knowledgeBase: string
   sessionId: string
   agentTrace: AgentTrace | null
   sources: SourceDocument[]
@@ -26,7 +24,7 @@ interface ChatStore {
   addMessage: (role: 'user' | 'assistant', content: string) => void
   updateLastMessage: (content: string) => void
   setLoading: (loading: boolean) => void
-  setDepartment: (dept: DepartmentType) => void
+  setKnowledgeBase: (knowledgeBase: string) => void
   clearMessages: () => void
   setAgentTrace: (trace: AgentTrace | null) => void
   setSources: (sources: SourceDocument[]) => void
@@ -39,7 +37,7 @@ export const useChatStore = create<ChatStore>()(
       (set) => ({
         messages: [],
         isLoading: false,
-        department: 'auto',
+        knowledgeBase: 'all',
         sessionId: crypto.randomUUID(),
         agentTrace: null,
         sources: [],
@@ -57,7 +55,7 @@ export const useChatStore = create<ChatStore>()(
             return { messages }
           }),
         setLoading: (loading) => set({ isLoading: loading }),
-        setDepartment: (dept) => set({ department: dept }),
+        setKnowledgeBase: (knowledgeBase) => set({ knowledgeBase }),
         clearMessages: () => set({ messages: [] }),
         setAgentTrace: (trace) => set({ agentTrace: trace }),
         setSources: (sources) => set({ sources }),

@@ -1,23 +1,11 @@
-import os
+from __future__ import annotations
 
 from langchain_core.embeddings import Embeddings
-from langchain_community.embeddings import HuggingFaceBgeEmbeddings
-from langchain_openai import AzureOpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings, OpenAIEmbeddings
 from pydantic import SecretStr
 
-_EMBEDDING_MODEL_CACHE: dict[str, Embeddings] = {}
-
-
-def _get_setting_value(settings: object, *keys: str) -> str | None:
-    for key in keys:
-        value = getattr(settings, key, None)
-        if value is None:
-            continue
-        if isinstance(value, str):
-            return value
-        if isinstance(value, (int, float, bool)):
-            return str(value)
-    return None
+_EMBEDDING_MODEL_CACHE: dict[tuple[str, str], Embeddings] = {}
 
 
 def clear_embedding_model_cache() -> None:
@@ -25,56 +13,54 @@ def clear_embedding_model_cache() -> None:
 
 
 def get_embedding_model(settings: object) -> Embeddings:
-    provider = _get_setting_value(settings, "embedding_provider", "EMBEDDING_PROVIDER")
-    if provider is None:
-        provider = os.getenv("EMBEDDING_PROVIDER")
-    normalized_provider = (provider or "").lower()
+    provider = str(getattr(settings, "embedding_provider", "local")).casefold()
 
-    if normalized_provider in _EMBEDDING_MODEL_CACHE:
-        return _EMBEDDING_MODEL_CACHE[normalized_provider]
+    if provider == "local":
+        model_name = str(
+            getattr(settings, "embedding_model_name", "BAAI/bge-m3")
+        )
+        cache_key = (provider, model_name)
+        if cache_key not in _EMBEDDING_MODEL_CACHE:
+            _EMBEDDING_MODEL_CACHE[cache_key] = HuggingFaceEmbeddings(
+                model_name=model_name,
+                model_kwargs={"device": "cpu"},
+                encode_kwargs={"normalize_embeddings": True},
+            )
+        return _EMBEDDING_MODEL_CACHE[cache_key]
 
-    if normalized_provider == "local":
-        model = HuggingFaceBgeEmbeddings(
-            model_name="BAAI/bge-base-en-v1.5",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
+    if provider == "openai":
+        model_name = str(
+            getattr(settings, "openai_embedding_model", "text-embedding-3-small")
         )
-        _EMBEDDING_MODEL_CACHE[normalized_provider] = model
-        return model
+        api_key = getattr(settings, "openai_api_key", None)
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai"
+            )
+        cache_key = (provider, model_name)
+        if cache_key not in _EMBEDDING_MODEL_CACHE:
+            _EMBEDDING_MODEL_CACHE[cache_key] = OpenAIEmbeddings(
+                model=model_name,
+                api_key=SecretStr(str(api_key)),
+            )
+        return _EMBEDDING_MODEL_CACHE[cache_key]
 
-    if normalized_provider == "azure":
-        azure_deployment = _get_setting_value(
-            settings,
-            "azure_openai_embedding_deployment",
-            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT",
-            "azure_openai_deployment",
-            "AZURE_OPENAI_DEPLOYMENT",
-        )
-        if azure_deployment is None:
-            azure_deployment = os.getenv(
-                "AZURE_OPENAI_EMBEDDING_DEPLOYMENT"
-            ) or os.getenv("AZURE_OPENAI_DEPLOYMENT")
-        azure_endpoint = _get_setting_value(
-            settings,
-            "azure_openai_endpoint",
-            "AZURE_OPENAI_ENDPOINT",
-        )
-        if azure_endpoint is None:
-            azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        api_key = _get_setting_value(
-            settings,
-            "azure_openai_api_key",
-            "AZURE_OPENAI_API_KEY",
-        )
-        if api_key is None:
-            api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    if provider == "azure":
+        deployment = getattr(settings, "azure_openai_embedding_deployment", None)
+        endpoint = getattr(settings, "azure_openai_endpoint", None)
+        api_key = getattr(settings, "azure_openai_api_key", None)
+        if not all((deployment, endpoint, api_key)):
+            raise ValueError(
+                "Azure endpoint, key, and embedding deployment are required "
+                "when EMBEDDING_PROVIDER=azure"
+            )
+        cache_key = (provider, str(deployment))
+        if cache_key not in _EMBEDDING_MODEL_CACHE:
+            _EMBEDDING_MODEL_CACHE[cache_key] = AzureOpenAIEmbeddings(
+                azure_deployment=str(deployment),
+                azure_endpoint=str(endpoint),
+                api_key=SecretStr(str(api_key)),
+            )
+        return _EMBEDDING_MODEL_CACHE[cache_key]
 
-        model = AzureOpenAIEmbeddings(
-            azure_deployment=azure_deployment,
-            azure_endpoint=azure_endpoint,
-            api_key=SecretStr(api_key) if api_key is not None else None,
-        )
-        _EMBEDDING_MODEL_CACHE[normalized_provider] = model
-        return model
-
-    raise ValueError(f"Invalid embedding provider: {provider}")
+    raise ValueError("EMBEDDING_PROVIDER must be one of: local, openai, azure")

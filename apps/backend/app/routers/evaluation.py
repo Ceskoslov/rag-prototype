@@ -34,6 +34,8 @@ async def get_db() -> Any:
 
 
 def _arq_redis_url() -> str:
+    if settings.arq_redis_url:
+        return settings.arq_redis_url
     return settings.redis_url.rsplit("/", 1)[0] + "/1"
 
 

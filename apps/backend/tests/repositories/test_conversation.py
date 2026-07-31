@@ -15,12 +15,12 @@ async def test_create_conversation(async_session_factory_test):
         repo = ConversationRepository(session)
 
         conv = await repo.create_conversation(
-            session_id="test-session-1", department="it_support"
+            session_id="test-session-1", knowledge_base="it_support"
         )
 
         assert conv.id is not None
         assert conv.session_id == "test-session-1"
-        assert conv.department == "it_support"
+        assert conv.knowledge_base == "it_support"
 
         # Verify it's in the database
         result = await session.execute(
@@ -35,7 +35,7 @@ async def test_get_conversation(async_session_factory_test):
     """Test retrieving an existing conversation."""
     async with async_session_factory_test() as session:
         # Create a conversation first
-        conv = Conversation(session_id="test-session-2", department="legal")
+        conv = Conversation(session_id="test-session-2", knowledge_base="legal")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -47,7 +47,7 @@ async def test_get_conversation(async_session_factory_test):
         assert retrieved is not None
         assert retrieved.id == conv.id
         assert retrieved.session_id == "test-session-2"
-        assert retrieved.department == "legal"
+        assert retrieved.knowledge_base == "legal"
 
 
 @pytest.mark.asyncio
@@ -65,7 +65,7 @@ async def test_add_message(async_session_factory_test):
     """Test adding a message to a conversation."""
     async with async_session_factory_test() as session:
         # Create a conversation first
-        conv = Conversation(session_id="test-session-3", department="credit_card")
+        conv = Conversation(session_id="test-session-3", knowledge_base="credit_card")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -93,7 +93,7 @@ async def test_get_messages(async_session_factory_test):
     """Test retrieving messages with limit and offset."""
     async with async_session_factory_test() as session:
         # Create conversation and multiple messages
-        conv = Conversation(session_id="test-session-4", department="it_support")
+        conv = Conversation(session_id="test-session-4", knowledge_base="it_support")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -131,12 +131,12 @@ async def test_get_or_create_conversation_new(async_session_factory_test):
         repo = ConversationRepository(session)
 
         conv = await repo.get_or_create_conversation(
-            session_id="test-session-5", department="airport_ground"
+            session_id="test-session-5", knowledge_base="airport_ground"
         )
 
         assert conv.id is not None
         assert conv.session_id == "test-session-5"
-        assert conv.department == "airport_ground"
+        assert conv.knowledge_base == "airport_ground"
 
         # Verify it's in database
         result = await session.execute(
@@ -150,7 +150,7 @@ async def test_get_or_create_conversation_existing(async_session_factory_test):
     """Test get_or_create returns existing conversation without duplicating."""
     async with async_session_factory_test() as session:
         # Create existing conversation
-        existing = Conversation(session_id="test-session-6", department="legal")
+        existing = Conversation(session_id="test-session-6", knowledge_base="legal")
         session.add(existing)
         await session.commit()
         await session.refresh(existing)
@@ -159,7 +159,7 @@ async def test_get_or_create_conversation_existing(async_session_factory_test):
 
         # Call get_or_create with same session_id
         conv = await repo.get_or_create_conversation(
-            session_id="test-session-6", department="legal"
+            session_id="test-session-6", knowledge_base="legal"
         )
 
         assert conv.id == existing.id
@@ -178,7 +178,7 @@ async def test_get_messages_for_context(async_session_factory_test):
     """Test get_messages_for_context returns recent messages formatted for LangChain."""
     async with async_session_factory_test() as session:
         # Create conversation and messages
-        conv = Conversation(session_id="test-session-7", department="it_support")
+        conv = Conversation(session_id="test-session-7", knowledge_base="it_support")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -215,7 +215,7 @@ async def test_save_agent_response(async_session_factory_test):
     """Test save_agent_response saves assistant message with sources and trace."""
     async with async_session_factory_test() as session:
         # Create conversation
-        conv = Conversation(session_id="test-session-8", department="credit_card")
+        conv = Conversation(session_id="test-session-8", knowledge_base="credit_card")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -259,7 +259,7 @@ async def test_full_conversation_lifecycle(async_session_factory_test):
 
         # 1. Create or get conversation
         conv = await repo.get_or_create_conversation(
-            session_id="lifecycle-session", department="it_support"
+            session_id="lifecycle-session", knowledge_base="it_support"
         )
         assert conv.id is not None
 
@@ -294,6 +294,6 @@ async def test_full_conversation_lifecycle(async_session_factory_test):
 
         # 6. Verify get_or_create doesn't duplicate
         conv2 = await repo.get_or_create_conversation(
-            session_id="lifecycle-session", department="it_support"
+            session_id="lifecycle-session", knowledge_base="it_support"
         )
         assert conv2.id == conv.id

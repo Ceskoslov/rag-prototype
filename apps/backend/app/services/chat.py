@@ -1,110 +1,71 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from langchain_core.messages import BaseMessage
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.supervisor import SupervisorResult, SupervisorService
 from app.core.logging import get_logger
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.repositories.conversation import ConversationRepository
 from app.schemas.chat import AgentTrace, ChatResponse
-from app.schemas.common import Department
+from app.services.rag import RAGResult, RAGService
 
 logger = get_logger(__name__)
 
 
-def _make_json_safe(obj: Any) -> Any:
-    if isinstance(obj, BaseMessage):
-        return {"type": obj.type, "content": str(obj.content)}
-    if isinstance(obj, dict):
-        return {k: _make_json_safe(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_make_json_safe(item) for item in obj]
-    if isinstance(obj, (str, int, float, bool, type(None))):
-        return obj
-    return str(obj)
-
-
 class ChatService:
-    def __init__(self, session: AsyncSession, supervisor: SupervisorService | Any):
+    def __init__(self, session: AsyncSession, rag: RAGService | Any):
         self.session = session
         self.conversation_repo = ConversationRepository(session)
-        self.supervisor = supervisor
+        self.rag = rag
 
     async def process_message(
         self,
         message: str,
-        department: Department | None = None,
+        knowledge_base: str | None = None,
         session_id: str | None = None,
     ) -> ChatResponse:
-        conversation = await self._get_or_create_conversation(session_id, department)
-        history_messages = await self._load_recent_history(conversation.id)
-        history = [
-            {"role": item.role, "content": item.content} for item in history_messages
-        ]
+        conversation = await self._get_or_create_conversation(
+            session_id,
+            knowledge_base,
+        )
+        history = await self._history(conversation.id)
         query = self._build_query_with_history(message=message, history=history)
-
-        try:
-            config = {"configurable": {"thread_id": conversation.id}}
-            result = self.supervisor.route_query(query, department, config=config)
-        except Exception as exc:
-            logger.error("chat_failed", error=str(exc), message=message)
-            result = SupervisorResult(
-                answer="I couldn't complete your request right now. Please try again.",
-                departments_used=[department] if department is not None else [],
-                agent_traces=[{"error": str(exc)}],
-                confidence=0.0,
-            )
+        result = await self._run_rag(query, knowledge_base)
 
         await self.conversation_repo.add_message(
             conversation_id=conversation.id,
             role="user",
             content=message,
         )
-
-        source_docs = self._extract_sources(result)
-        assistant_trace = _make_json_safe(
-            {
-                "agent_traces": result.agent_traces,
-                "confidence": result.confidence,
-                "history_count": len(history),
-            }
-        )
         await self.conversation_repo.add_message(
             conversation_id=conversation.id,
             role="assistant",
             content=result.answer,
-            sources=source_docs,
-            trace=assistant_trace,
+            sources=result.sources,
+            trace=self._trace_payload(result, len(history)),
         )
-
         await self.session.commit()
-        return self._to_chat_response(
-            result=result,
-            source_docs=source_docs,
-            session_id=conversation.session_id,
-        )
+        return self._to_chat_response(result, conversation.session_id)
 
     async def chat_stream(
         self,
         message: str,
-        department: Department | None = None,
+        knowledge_base: str | None = None,
         session_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        conversation = await self._get_or_create_conversation(session_id, department)
-        history_messages = await self._load_recent_history(conversation.id)
-        history = [
-            {"role": item.role, "content": item.content} for item in history_messages
-        ]
+        conversation = await self._get_or_create_conversation(
+            session_id,
+            knowledge_base,
+        )
+        history = await self._history(conversation.id)
         query = self._build_query_with_history(message=message, history=history)
-
         await self.conversation_repo.add_message(
             conversation_id=conversation.id,
             role="user",
@@ -112,157 +73,92 @@ class ChatService:
         )
         yield self._sse({"type": "heartbeat"})
 
-        try:
-            config = {"configurable": {"thread_id": conversation.id}}
-            result = self.supervisor.route_query(query, department, config=config)
-        except Exception as exc:
-            logger.error("chat_stream_failed", error=str(exc), message=message)
-            fallback = {
-                "type": "trace",
-                "data": {"error": str(exc), "departments": [], "confidence": 0.0},
-            }
-            yield self._sse(fallback)
-            await self.conversation_repo.add_message(
-                conversation_id=conversation.id,
-                role="assistant",
-                content="I couldn't complete your request right now. Please try again.",
-                sources=[],
-                trace={"error": str(exc), "history_count": len(history)},
-            )
-            await self.session.commit()
-            yield self._sse({"type": "done"})
-            return
-
-        tokens = [token for token in result.answer.split(" ") if token]
-        for i, token in enumerate(tokens):
-            content = token if i == 0 else " " + token
-            yield self._sse({"type": "token", "content": content})
-
-        source_docs = self._extract_sources(result)
-        yield self._sse({"type": "sources", "data": source_docs})
-
-        departments = [dept.value for dept in result.departments_used]
-        decision = ", ".join(departments) if departments else "unknown"
-        yield self._sse(
-            _make_json_safe(
+        result = await self._run_rag(query, knowledge_base)
+        if result.confidence == 0.0 and result.pipeline_steps == ["error"]:
+            yield self._sse(
                 {
-                    "type": "trace",
-                    "data": {
-                        "supervisor_decision": decision,
-                        "agents_invoked": departments or ["unknown"],
-                        "retrieval_sources": source_docs,
-                        "iterations": max(1, len(result.agent_traces)),
-                        "confidence": result.confidence,
-                    },
+                    "type": "error",
+                    "data": {"message": result.answer},
                 }
             )
-        )
 
+        for index, token in enumerate(result.answer.split(" ")):
+            yield self._sse(
+                {
+                    "type": "token",
+                    "content": token if index == 0 else f" {token}",
+                }
+            )
+
+        yield self._sse({"type": "sources", "data": result.sources})
+        yield self._sse(
+            {
+                "type": "trace",
+                "data": self._agent_trace(result).model_dump(),
+            }
+        )
         await self.conversation_repo.add_message(
             conversation_id=conversation.id,
             role="assistant",
             content=result.answer,
-            sources=source_docs,
-            trace=_make_json_safe(
-                {
-                    "agent_traces": result.agent_traces,
-                    "confidence": result.confidence,
-                    "history_count": len(history),
-                }
-            ),
+            sources=result.sources,
+            trace=self._trace_payload(result, len(history)),
         )
         await self.session.commit()
         yield self._sse({"type": "done"})
 
+    async def _run_rag(
+        self,
+        query: str,
+        knowledge_base: str | None,
+    ) -> RAGResult:
+        try:
+            return await asyncio.to_thread(self.rag.query, query, knowledge_base)
+        except Exception as exc:
+            logger.exception(
+                "rag_query_failed",
+                error=str(exc),
+                knowledge_base=knowledge_base,
+            )
+            return RAGResult(
+                answer="I couldn't complete your request right now. Please try again.",
+                knowledge_bases_used=[],
+                sources=[],
+                confidence=0.0,
+                iterations=0,
+                pipeline_steps=["error"],
+            )
+
     async def _get_or_create_conversation(
         self,
         session_id: str | None,
-        department: Department | None,
+        knowledge_base: str | None,
     ) -> Conversation:
-        resolved_session_id = session_id or str(uuid.uuid4())
-        default_department = (department or Department.IT_SUPPORT).value
         return await self.conversation_repo.get_or_create_conversation(
-            session_id=resolved_session_id,
-            department=default_department,
+            session_id=session_id or str(uuid.uuid4()),
+            knowledge_base=knowledge_base or "all",
         )
 
+    async def _history(self, conversation_id: int) -> list[dict[str, str]]:
+        messages = await self._load_recent_history(conversation_id)
+        return [{"role": item.role, "content": item.content} for item in messages]
+
+    @staticmethod
     def _build_query_with_history(
-        self,
         *,
         message: str,
         history: list[dict[str, Any]],
     ) -> str:
         if not history:
             return message
-
-        context_lines = [
+        context = "\n".join(
             f"{entry.get('role', 'unknown')}: {entry.get('content', '')}"
             for entry in history
-        ]
-        context = "\n".join(context_lines)
-        return f"Conversation history:\n{context}\n\nCurrent user message:\n{message}"
-
-    def _extract_sources(self, result: SupervisorResult) -> list[dict[str, Any]]:
-        traces = result.agent_traces or []
-        extracted: list[dict[str, Any]] = []
-        seen_titles: set[str] = set()
-
-        for trace in traces:
-            if not isinstance(trace, dict):
-                continue
-
-            # Try legacy format: trace has a top-level "sources" key
-            raw_sources = trace.get("sources")
-            if isinstance(raw_sources, list):
-                for source in raw_sources:
-                    if isinstance(source, dict):
-                        title = str(source.get("title", "unknown"))
-                        if title not in seen_titles:
-                            seen_titles.add(title)
-                            extracted.append(
-                                {
-                                    "title": title,
-                                    "snippet": str(source.get("snippet", "")),
-                                    "department": str(source.get("department", "")),
-                                }
-                            )
-
-            # Parse ToolMessage content from agent messages for rag_search JSON output
-            messages = trace.get("messages")
-            if not isinstance(messages, list):
-                continue
-            for msg in messages:
-                content = None
-                if isinstance(msg, BaseMessage) and msg.type == "tool":
-                    content = str(msg.content)
-                elif isinstance(msg, dict) and msg.get("type") == "tool":
-                    content = str(msg.get("content", ""))
-                if content is None:
-                    continue
-                try:
-                    parsed = json.loads(content)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-                if not isinstance(parsed, dict):
-                    continue
-                tool_sources = parsed.get("sources")
-                if not isinstance(tool_sources, list):
-                    continue
-                for source in tool_sources:
-                    if not isinstance(source, dict):
-                        continue
-                    title = str(source.get("title", "unknown"))
-                    if title not in seen_titles:
-                        seen_titles.add(title)
-                        extracted.append(
-                            {
-                                "title": title,
-                                "snippet": str(source.get("snippet", "")),
-                                "department": str(source.get("department", "")),
-                            }
-                        )
-
-        return extracted
+        )
+        return (
+            "Use this conversation history only to resolve references in the current "
+            f"question:\n{context}\n\nCurrent question:\n{message}"
+        )
 
     async def _load_recent_history(self, conversation_id: int) -> list[Message]:
         total_result = await self.session.execute(
@@ -271,43 +167,46 @@ class ChatService:
             )
         )
         total = int(total_result.scalar_one() or 0)
-        offset = max(total - 10, 0)
         return await self.conversation_repo.get_messages(
             conversation_id,
             limit=10,
-            offset=offset,
+            offset=max(total - 10, 0),
         )
+
+    @staticmethod
+    def _agent_trace(result: RAGResult) -> AgentTrace:
+        return AgentTrace(
+            knowledge_bases_searched=result.knowledge_bases_used,
+            retrieval_sources=result.sources,
+            iterations=result.iterations,
+            pipeline_steps=result.pipeline_steps,
+        )
+
+    def _trace_payload(
+        self,
+        result: RAGResult,
+        history_count: int,
+    ) -> dict[str, Any]:
+        return {
+            **self._agent_trace(result).model_dump(),
+            "confidence": result.confidence,
+            "history_count": history_count,
+        }
 
     def _to_chat_response(
         self,
-        *,
-        result: SupervisorResult,
-        source_docs: list[dict[str, Any]],
+        result: RAGResult,
         session_id: str,
     ) -> ChatResponse:
-        departments = [department.value for department in result.departments_used]
-        decision = ", ".join(departments) if departments else "unknown"
-        source_labels = [item.get("title", "unknown") for item in source_docs]
-
-        trace = AgentTrace(
-            supervisor_decision=decision,
-            agents_invoked=departments or ["unknown"],
-            retrieval_sources=source_docs,
-            iterations=max(1, len(result.agent_traces)),
-        )
-        department = (
-            result.departments_used[0]
-            if result.departments_used
-            else Department.IT_SUPPORT
-        )
         return ChatResponse(
             answer=result.answer,
-            department=department,
-            sources=[str(label) for label in source_labels],
-            confidence=float(result.confidence),
-            trace=trace,
+            knowledge_bases=result.knowledge_bases_used,
+            sources=[str(item["title"]) for item in result.sources],
+            confidence=result.confidence,
+            trace=self._agent_trace(result),
             session_id=session_id,
         )
 
-    def _sse(self, payload: dict[str, Any]) -> str:
-        return f"data: {json.dumps(payload)}\n\n"
+    @staticmethod
+    def _sse(payload: dict[str, Any]) -> str:
+        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"

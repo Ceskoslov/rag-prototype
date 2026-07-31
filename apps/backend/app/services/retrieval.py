@@ -1,179 +1,201 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any, cast
 
-from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
-from langchain_core.retrievers import BaseRetriever
-from langchain.retrievers.ensemble import EnsembleRetriever
+from langchain_core.embeddings import Embeddings
 from rank_bm25 import BM25Okapi
 
 from app.core.docstore import RedisDocStore
 from app.repositories.vectorstore import ChromaCollection, ChromaRepository
-from app.schemas.common import Department
+from app.schemas.common import normalize_knowledge_base
 
 
 def _tokenize(text: str) -> list[str]:
-    return [token for token in text.lower().split() if token]
-
-
-class _VectorChildRetriever(BaseRetriever):
-    repository: ChromaRepository
-    department: Department
-    k: int = 5
-
-    def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
-    ) -> list[Document]:
-        _ = run_manager
-        collection = self.repository.get_collection(self.department.value)
-        items = self.repository.similarity_search(
-            collection=collection, query=query, k=self.k
-        )
-
-        docs: list[Document] = []
-        for item in items:
-            metadata = cast(dict[str, Any], item.get("metadata") or {})
-            doc = Document(
-                id=cast(str | None, item.get("id")),
-                page_content=str(item.get("document") or ""),
-                metadata=metadata,
-            )
-            docs.append(doc)
-        return docs
-
-
-class _BM25ChildRetriever(BaseRetriever):
-    index: BM25Okapi
-    documents: list[Document]
-    k: int = 5
-
-    def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
-    ) -> list[Document]:
-        _ = run_manager
-        if not self.documents:
-            return []
-
-        query_tokens = _tokenize(query)
-        if not query_tokens:
-            return []
-
-        scores = self.index.get_scores(query_tokens)
-        ranked_indices = sorted(
-            range(len(scores)), key=lambda idx: float(scores[idx]), reverse=True
-        )
-
-        results: list[Document] = []
-        for idx in ranked_indices:
-            if float(scores[idx]) <= 0:
-                continue
-            results.append(self.documents[idx])
-            if len(results) >= self.k:
-                break
-        return results
+    return [token for token in text.casefold().split() if token]
 
 
 class HybridRetriever:
+    """Hybrid dense + lexical retriever for any number of knowledge bases."""
+
     def __init__(
-        self, vector_repository: ChromaRepository, docstore: RedisDocStore
+        self,
+        vector_repository: ChromaRepository,
+        docstore: RedisDocStore,
+        embedding_model: Embeddings,
     ) -> None:
         self.vector_repository = vector_repository
         self.docstore = docstore
-        self._bm25_indexes: dict[Department, BM25Okapi] = {}
-        self._bm25_documents: dict[Department, list[Document]] = {}
+        self.embedding_model = embedding_model
+        self._bm25_indexes: dict[str, BM25Okapi] = {}
+        self._bm25_documents: dict[str, list[Document]] = {}
 
     def invoke(
-        self, query: str, config: dict[str, Any] | None = None
+        self,
+        query: str,
+        config: dict[str, Any] | None = None,
     ) -> list[Document]:
-        department_str = (config or {}).get("department", "it_support")
-        k = (config or {}).get("k", 5)
-        try:
-            department = Department(department_str)
-        except ValueError:
-            department = Department.IT_SUPPORT
-        return self.retrieve(query, department, k=k)
+        options = config or {}
+        knowledge_base = options.get("knowledge_base") or options.get("department")
+        return self.retrieve(
+            query=query,
+            knowledge_base=str(knowledge_base) if knowledge_base else None,
+            k=int(options.get("k", 5)),
+        )
 
     def retrieve(
-        self, query: str, department: Department, k: int = 5
+        self,
+        query: str,
+        knowledge_base: str | None = None,
+        k: int = 5,
     ) -> list[Document]:
-        if department not in self._bm25_indexes:
-            self._build_bm25_index(department)
-
-        vector_retriever = _VectorChildRetriever(
-            repository=self.vector_repository,
-            department=department,
-            k=k,
-        )
-
-        bm25_docs = self._bm25_documents.get(department, [])
-        child_results: list[Document]
-
-        if not bm25_docs:
-            child_results = vector_retriever.invoke(query)
+        if knowledge_base:
+            targets = [normalize_knowledge_base(knowledge_base)]
         else:
-            bm25_retriever = _BM25ChildRetriever(
-                index=self._bm25_indexes[department],
-                documents=bm25_docs,
-                k=k,
-            )
+            targets = self.vector_repository.list_knowledge_bases()
 
-            ensemble = EnsembleRetriever(
-                retrievers=[bm25_retriever, vector_retriever],
-                weights=[0.4, 0.6],
-            )
-            child_results = cast(list[Document], ensemble.invoke(query))
-
-            if not child_results:
-                child_results = vector_retriever.invoke(query)
-
-        return self._resolve_parent_documents(
-            child_documents=child_results,
-            department=department,
-            k=k,
-        )
-
-    def _build_bm25_index(self, department: Department) -> None:
-        collection = self.vector_repository.get_collection(department.value)
-        docs = self._load_department_child_documents(collection=collection)
-        tokenized_corpus = [_tokenize(doc.page_content) for doc in docs]
-
-        if not tokenized_corpus:
-            self._bm25_indexes[department] = BM25Okapi([[]])
-            self._bm25_documents[department] = []
-            return
-
-        self._bm25_indexes[department] = BM25Okapi(tokenized_corpus)
-        self._bm25_documents[department] = docs
-
-    def _load_department_child_documents(
-        self, collection: ChromaCollection
-    ) -> list[Document]:
-        raw_collection = cast(Any, collection)
-        if not hasattr(raw_collection, "get"):
+        if not targets:
             return []
 
-        payload = cast(
-            dict[str, Any],
-            raw_collection.get(include=["documents", "metadatas"]),
+        query_embedding = self.embedding_model.embed_query(query)
+        candidates: list[Document] = []
+        per_base_k = max(k, 5)
+        for target in targets:
+            candidates.extend(
+                self._retrieve_from_knowledge_base(
+                    query=query,
+                    query_embedding=query_embedding,
+                    knowledge_base=target,
+                    k=per_base_k,
+                )
+            )
+
+        candidates.sort(
+            key=lambda doc: float(doc.metadata.get("retrieval_score", 0.0)),
+            reverse=True,
         )
+        return candidates[:k]
+
+    def invalidate(self, knowledge_base: str) -> None:
+        normalized = normalize_knowledge_base(knowledge_base)
+        self._bm25_indexes.pop(normalized, None)
+        self._bm25_documents.pop(normalized, None)
+
+    def _retrieve_from_knowledge_base(
+        self,
+        *,
+        query: str,
+        query_embedding: list[float],
+        knowledge_base: str,
+        k: int,
+    ) -> list[Document]:
+        try:
+            collection = self.vector_repository.get_collection(knowledge_base)
+        except ValueError:
+            return []
+
+        if knowledge_base not in self._bm25_indexes:
+            self._build_bm25_index(knowledge_base, collection)
+
+        vector_items = self.vector_repository.similarity_search(
+            collection=collection,
+            query_embedding=query_embedding,
+            k=k,
+        )
+        vector_docs = [
+            Document(
+                id=cast(str | None, item.get("id")),
+                page_content=str(item.get("document") or ""),
+                metadata={
+                    **cast(dict[str, Any], item.get("metadata") or {}),
+                    "knowledge_base": knowledge_base,
+                },
+            )
+            for item in vector_items
+        ]
+        lexical_docs = self._bm25_search(query, knowledge_base, k)
+        fused = self._reciprocal_rank_fusion(
+            vector_docs=vector_docs,
+            lexical_docs=lexical_docs,
+        )
+        return self._resolve_parent_documents(fused, knowledge_base, k)
+
+    def _bm25_search(
+        self,
+        query: str,
+        knowledge_base: str,
+        k: int,
+    ) -> list[Document]:
+        documents = self._bm25_documents.get(knowledge_base, [])
+        query_tokens = _tokenize(query)
+        if not documents or not query_tokens:
+            return []
+
+        scores = self._bm25_indexes[knowledge_base].get_scores(query_tokens)
+        ranked = sorted(
+            range(len(scores)),
+            key=lambda index: float(scores[index]),
+            reverse=True,
+        )
+        return [
+            documents[index]
+            for index in ranked
+            if float(scores[index]) > 0
+        ][:k]
+
+    @staticmethod
+    def _reciprocal_rank_fusion(
+        *,
+        vector_docs: list[Document],
+        lexical_docs: list[Document],
+        rank_constant: int = 60,
+    ) -> list[Document]:
+        documents: dict[str, Document] = {}
+        scores: defaultdict[str, float] = defaultdict(float)
+        for weight, ranking in ((0.65, vector_docs), (0.35, lexical_docs)):
+            for rank, document in enumerate(ranking, start=1):
+                key = str(document.id or hash(document.page_content))
+                documents[key] = document
+                scores[key] += weight / (rank_constant + rank)
+
+        fused: list[Document] = []
+        for key in sorted(scores, key=scores.get, reverse=True):
+            document = documents[key]
+            fused.append(
+                Document(
+                    id=document.id,
+                    page_content=document.page_content,
+                    metadata={**document.metadata, "retrieval_score": scores[key]},
+                )
+            )
+        return fused
+
+    def _build_bm25_index(
+        self,
+        knowledge_base: str,
+        collection: ChromaCollection,
+    ) -> None:
+        documents = self._load_child_documents(collection)
+        corpus = [_tokenize(document.page_content) for document in documents]
+        self._bm25_documents[knowledge_base] = documents
+        self._bm25_indexes[knowledge_base] = BM25Okapi(corpus or [[]])
+
+    @staticmethod
+    def _load_child_documents(collection: ChromaCollection) -> list[Document]:
+        payload = collection.get(include=["documents", "metadatas"])
         ids = cast(list[str], payload.get("ids") or [])
         documents = cast(list[str], payload.get("documents") or [])
         metadatas = cast(list[dict[str, Any] | None], payload.get("metadatas") or [])
-
         results: list[Document] = []
-        for idx, doc_id in enumerate(ids):
-            metadata = cast(
-                dict[str, Any], metadatas[idx] if idx < len(metadatas) else {}
-            )
+        for index, doc_id in enumerate(ids):
+            metadata = dict(metadatas[index] or {}) if index < len(metadatas) else {}
             if metadata.get("chunk_type") != "child":
                 continue
-
-            page_content = documents[idx] if idx < len(documents) else ""
             results.append(
                 Document(
                     id=doc_id,
-                    page_content=page_content,
+                    page_content=documents[index] if index < len(documents) else "",
                     metadata=metadata,
                 )
             )
@@ -182,39 +204,36 @@ class HybridRetriever:
     def _resolve_parent_documents(
         self,
         child_documents: list[Document],
-        department: Department,
+        knowledge_base: str,
         k: int,
     ) -> list[Document]:
         resolved: list[Document] = []
-        seen_parent_ids: set[str] = set()
-        department_value = department.value
-
+        seen: set[str] = set()
         for child in child_documents:
-            metadata = cast(dict[str, Any], child.metadata)
-            parent_id_raw = metadata.get("parent_id")
-            parent_id = str(parent_id_raw) if parent_id_raw is not None else None
-
-            if parent_id is None:
-                if self._document_matches_department(child, department_value):
-                    resolved.append(child)
-            elif parent_id not in seen_parent_ids:
-                seen_parent_ids.add(parent_id)
-                parent_doc = self.docstore.mget([parent_id])[0]
-                if parent_doc is None:
-                    if self._document_matches_department(child, department_value):
-                        resolved.append(child)
-                elif self._document_matches_department(parent_doc, department_value):
-                    resolved.append(parent_doc)
-
+            parent_id = child.metadata.get("parent_id")
+            document = (
+                self.docstore.mget([str(parent_id)])[0]
+                if parent_id is not None
+                else None
+            )
+            selected = document or child
+            key = str(selected.id or parent_id or hash(selected.page_content))
+            if key in seen:
+                continue
+            seen.add(key)
+            resolved.append(
+                Document(
+                    id=selected.id,
+                    page_content=selected.page_content,
+                    metadata={
+                        **selected.metadata,
+                        "knowledge_base": knowledge_base,
+                        "retrieval_score": child.metadata.get(
+                            "retrieval_score", 0.0
+                        ),
+                    },
+                )
+            )
             if len(resolved) >= k:
                 break
-
-        return resolved[:k]
-
-    @staticmethod
-    def _document_matches_department(doc: Document, department_value: str) -> bool:
-        metadata = cast(dict[str, Any], doc.metadata)
-        doc_department = metadata.get("department")
-        if doc_department is None:
-            return True
-        return str(doc_department) == department_value
+        return resolved

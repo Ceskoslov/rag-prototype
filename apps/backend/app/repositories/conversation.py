@@ -1,8 +1,8 @@
 """Repository for conversation and message CRUD operations."""
 
-from typing import List, Optional, Dict, Any
+from typing import Any
 
-from sqlalchemy import select, desc
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
@@ -16,16 +16,16 @@ class ConversationRepository:
         self.session = session
 
     async def create_conversation(
-        self, session_id: str, department: str
+        self, session_id: str, knowledge_base: str
     ) -> Conversation:
         """Create a new conversation."""
-        conv = Conversation(session_id=session_id, department=department)
+        conv = Conversation(session_id=session_id, knowledge_base=knowledge_base)
         self.session.add(conv)
         await self.session.flush()
         await self.session.refresh(conv)
         return conv
 
-    async def get_conversation(self, session_id: str) -> Optional[Conversation]:
+    async def get_conversation(self, session_id: str) -> Conversation | None:
         """Retrieve conversation by session_id."""
         result = await self.session.execute(
             select(Conversation).where(Conversation.session_id == session_id)
@@ -37,8 +37,8 @@ class ConversationRepository:
         conversation_id: int,
         role: str,
         content: str,
-        sources: Optional[List[Dict[str, Any]]] = None,
-        trace: Optional[Dict[str, Any]] = None,
+        sources: list[dict[str, Any]] | None = None,
+        trace: dict[str, Any] | None = None,
     ) -> Message:
         """Add a message to a conversation."""
         msg = Message(
@@ -55,7 +55,7 @@ class ConversationRepository:
 
     async def get_messages(
         self, conversation_id: int, limit: int = 100, offset: int = 0
-    ) -> List[Message]:
+    ) -> list[Message]:
         """Retrieve messages for a conversation with pagination."""
         result = await self.session.execute(
             select(Message)
@@ -67,17 +67,17 @@ class ConversationRepository:
         return list(result.scalars().all())
 
     async def get_or_create_conversation(
-        self, session_id: str, department: str
+        self, session_id: str, knowledge_base: str
     ) -> Conversation:
         """Get existing conversation or create new one if not exists."""
         conv = await self.get_conversation(session_id)
         if conv:
             return conv
-        return await self.create_conversation(session_id, department)
+        return await self.create_conversation(session_id, knowledge_base)
 
     async def get_messages_for_context(
         self, conversation_id: int, limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get recent messages formatted for LangChain context.
 
@@ -100,8 +100,8 @@ class ConversationRepository:
         self,
         conversation_id: int,
         response: str,
-        trace: Optional[Dict[str, Any]] = None,
-        sources: Optional[List[Dict[str, Any]]] = None,
+        trace: dict[str, Any] | None = None,
+        sources: list[dict[str, Any]] | None = None,
     ) -> Message:
         """Save assistant message with sources and trace metadata."""
         return await self.add_message(

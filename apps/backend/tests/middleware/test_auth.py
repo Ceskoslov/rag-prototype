@@ -1,12 +1,11 @@
 """Test suite for API key authentication middleware."""
 
 import pytest
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.settings import settings
 from app.middleware.auth import verify_api_key
-from app.schemas.common import ErrorResponse
 
 
 @pytest.fixture

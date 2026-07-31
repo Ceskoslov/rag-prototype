@@ -4,20 +4,13 @@ import { useSSE } from '../useSSE'
 
 describe('useSSE', () => {
   let eventSourceMock: Partial<EventSource>
-  let onOpenCallback: (() => void) | null = null
-  let onMessageCallback: ((event: MessageEvent) => void) | null = null
-  let onErrorCallback: ((error: Event) => void) | null = null
 
   beforeEach(() => {
-    onOpenCallback = null
-    onMessageCallback = null
-    onErrorCallback = null
-
     eventSourceMock = {
       close: vi.fn(),
     }
 
-    const EventSourceConstructor = vi.fn(function (url: string) {
+    const EventSourceConstructor = vi.fn(function () {
       return eventSourceMock
     })
 
@@ -46,8 +39,10 @@ describe('useSSE', () => {
       act(() => {
         result.current.connect()
 
-        const es = eventSourceMock as any
-        if (es.onopen) es.onopen()
+        eventSourceMock.onopen?.call(
+          eventSourceMock as EventSource,
+          new Event('open'),
+        )
       })
 
       expect(result.current.isConnected).toBe(true)
@@ -60,8 +55,10 @@ describe('useSSE', () => {
       act(() => {
         result.current.connect()
 
-        const es = eventSourceMock as any
-        if (es.onerror) es.onerror(new Event('error'))
+        eventSourceMock.onerror?.call(
+          eventSourceMock as EventSource,
+          new Event('error'),
+        )
       })
 
       expect(result.current.isConnected).toBe(false)
@@ -92,18 +89,20 @@ describe('useSSE', () => {
       act(() => {
         result.current.connect()
 
-        const es = eventSourceMock as any
-        if (es.onopen) es.onopen()
+        eventSourceMock.onopen?.call(
+          eventSourceMock as EventSource,
+          new Event('open'),
+        )
       })
 
       const messageData = { type: 'token', content: 'Hello' }
       act(() => {
-        const es = eventSourceMock as any
-        if (es.onmessage) {
-          es.onmessage(
+        if (eventSourceMock.onmessage) {
+          eventSourceMock.onmessage.call(
+            eventSourceMock as EventSource,
             new MessageEvent('message', {
               data: JSON.stringify(messageData),
-            })
+            }),
           )
         }
       })
@@ -120,17 +119,19 @@ describe('useSSE', () => {
       act(() => {
         result.current.connect()
 
-        const es = eventSourceMock as any
-        if (es.onopen) es.onopen()
+        eventSourceMock.onopen?.call(
+          eventSourceMock as EventSource,
+          new Event('open'),
+        )
       })
 
       act(() => {
-        const es = eventSourceMock as any
-        if (es.onmessage) {
-          es.onmessage(
+        if (eventSourceMock.onmessage) {
+          eventSourceMock.onmessage.call(
+            eventSourceMock as EventSource,
             new MessageEvent('message', {
               data: 'invalid json {',
-            })
+            }),
           )
         }
       })
@@ -149,8 +150,10 @@ describe('useSSE', () => {
       act(() => {
         result.current.connect()
 
-        const es = eventSourceMock as any
-        if (es.onerror) es.onerror(new Event('error'))
+        eventSourceMock.onerror?.call(
+          eventSourceMock as EventSource,
+          new Event('error'),
+        )
       })
 
       expect(onError).toHaveBeenCalled()

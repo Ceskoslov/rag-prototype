@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +20,8 @@ class EvaluationResult(BaseModel):
     conversation_id: str = Field(..., description="Evaluated conversation ID")
     metrics: RAGASMetrics = Field(..., description="RAGAS metrics")
     evaluated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Evaluation timestamp"
+        default_factory=lambda: datetime.now(UTC),
+        description="Evaluation timestamp",
     )
 
 

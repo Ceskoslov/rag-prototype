@@ -19,17 +19,32 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://rag_user:rag_password@localhost:5432/rag_db"
     )
     redis_url: str = "redis://localhost:6379/0"
+    arq_redis_url: str | None = None
     api_key: str = "test-api-key-12345"
+    data_dir: Path = Path("data")
+    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origin_regex: str | None = None
+    enable_evaluation: bool = True
 
+    llm_provider: str = "mock"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-5.6-luna"
     azure_openai_endpoint: str | None = None
     azure_openai_api_key: str | None = None
-    azure_openai_api_version: str = "2024-05-01-preview"
+    azure_openai_api_version: str | None = None
     azure_openai_deployment_name: str | None = None
     azure_openai_embedding_deployment: str | None = None
 
     embedding_provider: str = "local"
+    embedding_model_name: str = "BAAI/bge-m3"
+    openai_embedding_model: str = "text-embedding-3-small"
 
+    chroma_provider: str = "http"
     chroma_api_url: str = "http://localhost:8000"
+    chroma_cloud_host: str = "api.trychroma.com"
+    chroma_tenant: str | None = None
+    chroma_database: str | None = None
+    chroma_api_key: str | None = None
 
 
 settings = Settings()
