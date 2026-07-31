@@ -1,4 +1,4 @@
-import { expect, afterEach, vi } from 'vitest'
+import { afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 
 const localStorageMock = (() => {

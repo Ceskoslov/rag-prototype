@@ -1,23 +1,41 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChatMessageList } from '@/components/ChatMessageList';
 import { ChatInput } from '@/components/ChatInput';
-import { DepartmentSelector } from '@/components/DepartmentSelector';
+import { KnowledgeBaseSelector } from '@/components/KnowledgeBaseSelector';
 import { AgentTracePanel } from '@/components/AgentTracePanel';
 import { useChatStore } from '@/stores/chatStore';
 import { useChat } from '@/hooks/useChat';
 
 export const ChatPage: React.FC = () => {
-  const { messages, isLoading, department, agentTrace, error } = useChatStore();
-  const { sendMessage, setDepartment } = useChat();
+  const { messages, isLoading, knowledgeBase, agentTrace, error } = useChatStore();
+  const { sendMessage, setKnowledgeBase } = useChat();
+  const [knowledgeBases, setKnowledgeBases] = useState<string[]>([]);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
+    fetch(`${apiBase}/knowledge-bases`, {
+      headers: { 'X-API-Key': apiKey },
+    })
+      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+      .then((items: Array<{ name: string }>) =>
+        setKnowledgeBases(items.map((item) => item.name)),
+      )
+      .catch(() => setKnowledgeBases([]));
+  }, []);
 
   return (
     <div className="flex h-screen">
       <aside className="w-64 border-r border-gray-200 p-4 bg-gray-50">
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-gray-900">Multi-Agent RAG</h1>
-          <p className="text-sm text-gray-600 mt-1">SkyWing Airlines</p>
+          <h1 className="text-xl font-bold text-gray-900">Universal RAG</h1>
+          <p className="text-sm text-gray-600 mt-1">Ask questions across your data</p>
         </div>
-        <DepartmentSelector value={department} onChange={setDepartment} />
+        <KnowledgeBaseSelector
+          value={knowledgeBase}
+          options={knowledgeBases}
+          onChange={setKnowledgeBase}
+        />
       </aside>
 
       <main className="flex-1 flex flex-col" role="main">

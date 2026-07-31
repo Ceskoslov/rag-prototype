@@ -1,6 +1,7 @@
 """API key authentication middleware using FastAPI dependencies."""
 
 import secrets
+
 from fastapi import Header, HTTPException, status
 
 from app.core.settings import settings

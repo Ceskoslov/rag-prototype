@@ -3,21 +3,24 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from arq.connections import RedisSettings
 
 from app.core.settings import settings
-from app.workers.tasks import evaluate_conversation_task, ingest_department_task
+from app.workers.tasks import evaluate_conversation_task, ingest_knowledge_base_task
 
 logger = logging.getLogger(__name__)
 
 
 class WorkerSettings:
-    functions: list = [ingest_department_task, evaluate_conversation_task]
+    functions: ClassVar[list] = [
+        ingest_knowledge_base_task,
+        evaluate_conversation_task,
+    ]
 
     redis_settings: RedisSettings = RedisSettings.from_dsn(
-        f"{settings.redis_url.rstrip('/0')}/1"
+        settings.arq_redis_url or f"{settings.redis_url.rstrip('/0')}/1"
     )
 
     max_jobs: int = 5

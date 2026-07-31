@@ -1,58 +1,57 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import arq
 from arq.connections import RedisSettings
 
 from app.core.logging import get_logger
 from app.repositories.vectorstore import ChromaRepository
-from app.schemas.common import Department
+from app.services.ingestion import IngestionService
 
 logger = get_logger(__name__)
 
 
 class SeedService:
-    chroma_repo: ChromaRepository
-    redis_url: str
-
-    def __init__(self, chroma_repo: ChromaRepository, redis_url: str):
+    def __init__(
+        self,
+        chroma_repo: ChromaRepository,
+        redis_url: str,
+        data_dir: Path,
+        arq_redis_url: str | None = None,
+    ) -> None:
         self.chroma_repo = chroma_repo
         self.redis_url = redis_url
+        self.data_dir = data_dir
+        self.arq_redis_url = arq_redis_url
 
-    async def seed_all_departments(self) -> dict[str, str]:
+    async def seed_all_knowledge_bases(self) -> dict[str, str]:
         results: dict[str, str] = {}
-        arq_redis_url = self.redis_url.rsplit("/", 1)[0] + "/1"
-
-        pool = await arq.create_pool(RedisSettings.from_dsn(arq_redis_url))
+        pool = await arq.create_pool(
+            RedisSettings.from_dsn(
+                self.arq_redis_url
+                or self.redis_url.rsplit("/", 1)[0] + "/1"
+            )
+        )
         try:
-            for department in Department:
-                collection_name = self.chroma_repo._collection_name(department.value)
-                count = self.chroma_repo.get_collection_count(collection_name)
-
+            for name in IngestionService.discover_knowledge_bases(self.data_dir):
+                count = self.chroma_repo.get_collection_count(
+                    self.chroma_repo._collection_name(name)
+                )
                 if count > 0:
-                    logger.info(
-                        "seed_department_skipped",
-                        department=department.value,
-                        count=count,
-                    )
-                    results[department.value] = "skipped"
-                else:
-                    await pool.enqueue(
-                        "ingest_department_task", department=department.value
-                    )
-                    logger.info(
-                        "seed_department_enqueued",
-                        department=department.value,
-                    )
-                    results[department.value] = "seeded"
+                    results[name] = "skipped"
+                    continue
+                await pool.enqueue_job("ingest_knowledge_base_task", name)
+                logger.info("seed_enqueued", knowledge_base=name)
+                results[name] = "seeded"
         finally:
-            await pool.close(close_connection=True)
-
+            await pool.aclose()
         return results
 
     async def check_seed_status(self) -> dict[str, int]:
-        status: dict[str, int] = {}
-        for department in Department:
-            collection_name = self.chroma_repo._collection_name(department.value)
-            count = self.chroma_repo.get_collection_count(collection_name)
-            status[department.value] = count
-        return status
+        return {
+            name: self.chroma_repo.get_collection_count(
+                self.chroma_repo._collection_name(name)
+            )
+            for name in IngestionService.discover_knowledge_bases(self.data_dir)
+        }

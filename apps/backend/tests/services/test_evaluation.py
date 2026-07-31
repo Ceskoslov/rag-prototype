@@ -27,7 +27,7 @@ async def test_evaluate_conversation_computes_and_stores_metrics(
 
     async with async_session_factory_test() as session:
         conversation = Conversation(
-            session_id="eval-session-1", department="it_support"
+            session_id="eval-session-1", knowledge_base="it_support"
         )
         session.add(conversation)
         await session.flush()
@@ -81,7 +81,7 @@ async def test_evaluate_conversation_handles_missing_sources_gracefully(
     from app.services.evaluation import EvaluationService
 
     async with async_session_factory_test() as session:
-        conversation = Conversation(session_id="eval-session-2", department="legal")
+        conversation = Conversation(session_id="eval-session-2", knowledge_base="legal")
         session.add(conversation)
         await session.flush()
         session.add(
@@ -132,7 +132,7 @@ async def test_evaluate_conversation_uses_mocked_ragas_call(
 
     async with async_session_factory_test() as session:
         conversation = Conversation(
-            session_id="eval-session-3", department="credit_card"
+            session_id="eval-session-3", knowledge_base="credit_card"
         )
         session.add(conversation)
         await session.flush()

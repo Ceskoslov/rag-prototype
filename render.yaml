@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: universal-rag-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./deploy/render/backend.Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATA_DIR
+        value: /data
+      - key: ENABLE_EVALUATION
+        value: "false"
+      - key: INGEST_ON_STARTUP
+        value: "true"
+      - key: LLM_PROVIDER
+        value: openai
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: OPENAI_MODEL
+        value: gpt-5.6-luna
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: CHROMA_PROVIDER
+        value: cloud
+      - key: CHROMA_CLOUD_HOST
+        value: api.trychroma.com
+      - key: CORS_ORIGINS
+        value: ""
+      - key: CORS_ORIGIN_REGEX
+        value: '^https://[a-z0-9-]+\.onrender\.com$'
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CHROMA_TENANT
+        sync: false
+      - key: CHROMA_DATABASE
+        sync: false
+      - key: CHROMA_API_KEY
+        sync: false
+      - key: API_KEY
+        sync: false
+
+  - type: web
+    name: universal-rag-web
+    runtime: static
+    rootDir: apps/frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeployTrigger: commit
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_API_KEY
+        sync: false

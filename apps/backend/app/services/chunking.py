@@ -1,5 +1,5 @@
+import hashlib
 from typing import cast
-from uuid import uuid4
 
 from langchain_core.documents import Document
 from langchain_text_splitters import (
@@ -8,11 +8,16 @@ from langchain_text_splitters import (
 )
 
 
-from app.schemas.common import Department
-
-
 class ChunkingService:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        parent_chunk_size: int = 1200,
+        parent_chunk_overlap: int = 160,
+        child_chunk_size: int = 320,
+        child_chunk_overlap: int = 64,
+    ) -> None:
+        parent_chunk_overlap = min(parent_chunk_overlap, parent_chunk_size - 1)
+        child_chunk_overlap = min(child_chunk_overlap, child_chunk_size - 1)
         self._markdown_splitter: MarkdownHeaderTextSplitter = (
             MarkdownHeaderTextSplitter(
                 headers_to_split_on=[
@@ -26,22 +31,27 @@ class ChunkingService:
         )
         self._parent_splitter: RecursiveCharacterTextSplitter = (
             RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
+                chunk_size=parent_chunk_size,
+                chunk_overlap=parent_chunk_overlap,
             )
         )
         self._child_splitter: RecursiveCharacterTextSplitter = (
             RecursiveCharacterTextSplitter(
-                chunk_size=200,
-                chunk_overlap=50,
+                chunk_size=child_chunk_size,
+                chunk_overlap=child_chunk_overlap,
             )
         )
 
     def chunk_document(self, doc: Document) -> list[Document]:
         metadata = cast(dict[str, object], doc.metadata)
-        department = self._normalize_department(metadata.get("department"))
+        knowledge_base = self._normalize_optional_str(
+            metadata.get("knowledge_base") or metadata.get("department")
+        )
         source_file = self._normalize_optional_str(
             metadata.get("source_file") or metadata.get("source")
+        )
+        source_path = self._normalize_optional_str(
+            metadata.get("source_path") or source_file
         )
 
         header_docs = self._markdown_splitter.split_text(doc.page_content)
@@ -53,10 +63,19 @@ class ChunkingService:
         chunks: list[Document] = []
         child_index = 0
         for parent_index, parent_doc in enumerate(parent_docs):
-            parent_id = f"parent_{uuid4().hex}"
-            parent_metadata: dict[str, str | int | None] = {
-                "department": department,
+            parent_id = self._stable_id(
+                "parent",
+                knowledge_base,
+                source_path,
+                str(parent_index),
+                parent_doc.page_content,
+            )
+            parent_metadata: dict[str, object] = {
+                **metadata,
+                **parent_doc.metadata,
+                "knowledge_base": knowledge_base,
                 "source_file": source_file,
+                "source_path": source_path,
                 "chunk_type": "parent",
                 "chunk_index": parent_index,
             }
@@ -69,12 +88,23 @@ class ChunkingService:
 
             child_docs = self._child_splitter.split_documents([parent_doc])
             for child_doc in child_docs:
+                child_id = self._stable_id(
+                    "child",
+                    knowledge_base,
+                    source_path,
+                    str(parent_index),
+                    str(child_index),
+                    child_doc.page_content,
+                )
                 child_chunk = Document(
-                    id=f"child_{uuid4().hex}",
+                    id=child_id,
                     page_content=child_doc.page_content,
                     metadata={
-                        "department": department,
+                        **metadata,
+                        **child_doc.metadata,
+                        "knowledge_base": knowledge_base,
                         "source_file": source_file,
+                        "source_path": source_path,
                         "chunk_type": "child",
                         "chunk_index": child_index,
                         "parent_id": parent_id,
@@ -86,12 +116,11 @@ class ChunkingService:
         return chunks
 
     @staticmethod
-    def _normalize_department(department: object) -> str | None:
-        if department is None:
-            return None
-        if isinstance(department, Department):
-            return department.value
-        return str(department)
+    def _stable_id(prefix: str, *parts: object) -> str:
+        digest = hashlib.sha256(
+            "\x1f".join(str(part or "") for part in parts).encode("utf-8")
+        ).hexdigest()
+        return f"{prefix}_{digest[:32]}"
 
     @staticmethod
     def _normalize_optional_str(value: object) -> str | None:

@@ -11,6 +11,12 @@ export const useSSE = (url: string, options: SSEOptions = {}) => {
   const eventSourceRef = useRef<EventSource | null>(null)
   const reconnectTimeoutRef = useRef<number | null>(null)
   const reconnectDelayRef = useRef(1000) // Start with 1s
+  const connectRef = useRef<() => void>(() => {})
+  const optionsRef = useRef(options)
+
+  useEffect(() => {
+    optionsRef.current = options
+  }, [options])
 
   const disconnect = useCallback(() => {
     if (eventSourceRef.current) {
@@ -41,7 +47,7 @@ export const useSSE = (url: string, options: SSEOptions = {}) => {
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        options.onMessage?.(data)
+        optionsRef.current.onMessage?.(data)
       } catch (err) {
         console.error('Failed to parse SSE message:', err)
       }
@@ -51,16 +57,20 @@ export const useSSE = (url: string, options: SSEOptions = {}) => {
       const error = new Error('SSE connection error')
       setError(error)
       setIsConnected(false)
-      options.onError?.(error)
+      optionsRef.current.onError?.(error)
 
       // Auto-reconnect with exponential backoff
       disconnect()
       reconnectTimeoutRef.current = window.setTimeout(() => {
         reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000)
-        connect()
+        connectRef.current()
       }, reconnectDelayRef.current)
     }
-  }, [url, options, disconnect])
+  }, [url, disconnect])
+
+  useEffect(() => {
+    connectRef.current = connect
+  }, [connect])
 
   useEffect(() => {
     return () => {

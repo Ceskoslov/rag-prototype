@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
 
 from app.middleware.auth import verify_api_key
 from app.models.conversation import Conversation
@@ -37,7 +36,7 @@ async def test_trigger_evaluation_enqueues_job_and_returns_job_id(
     )
 
     async with async_session_factory_test() as session:
-        session.add(Conversation(session_id="eval-session-1", department="it_support"))
+        session.add(Conversation(session_id="eval-session-1", knowledge_base="it_support"))
         await session.commit()
 
     with patch("app.routers.evaluation.arq.create_pool") as mock_create_pool:
@@ -78,7 +77,7 @@ async def test_get_evaluation_results_returns_stored_metrics(
 
     async with async_session_factory_test() as session:
         conversation = Conversation(
-            session_id="eval-session-2", department="it_support"
+            session_id="eval-session-2", knowledge_base="it_support"
         )
         session.add(conversation)
         await session.flush()
@@ -125,7 +124,7 @@ async def test_get_evaluation_status_returns_job_status(
     )
 
     async with async_session_factory_test() as session:
-        session.add(Conversation(session_id="eval-session-3", department="it_support"))
+        session.add(Conversation(session_id="eval-session-3", knowledge_base="it_support"))
         await session.commit()
 
     with patch("app.routers.evaluation.arq.create_pool") as mock_create_pool:

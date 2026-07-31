@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import sys
+from pathlib import Path
 
 from app.core.settings import settings
 from app.repositories.vectorstore import ChromaRepository
@@ -10,28 +11,33 @@ from app.services.seed import SeedService
 async def main() -> int:
     try:
         chroma_repo = ChromaRepository()
-        seed_service = SeedService(chroma_repo, settings.redis_url)
+        seed_service = SeedService(
+            chroma_repo,
+            settings.redis_url,
+            Path(settings.data_dir),
+            settings.arq_redis_url,
+        )
 
         print("=" * 60)
-        print("Seed All Departments - ARQ Job Enqueueing")
+        print("Seed All Knowledge Bases - ARQ Job Enqueueing")
         print("=" * 60)
 
         print("\nChecking current seed status...")
         status = await seed_service.check_seed_status()
-        print("\nCurrent document counts per department:")
-        for dept, count in status.items():
-            status_str = f"  {dept:20} → {count:3} documents"
+        print("\nCurrent chunk counts per knowledge base:")
+        for name, count in status.items():
+            status_str = f"  {name:20} → {count:3} chunks"
             print(status_str)
 
         print("\nStarting seeding process...")
-        results = await seed_service.seed_all_departments()
+        results = await seed_service.seed_all_knowledge_bases()
 
         print("\nSeeding results:")
-        for dept, result_status in results.items():
+        for name, result_status in results.items():
             if result_status == "seeded":
-                print(f"  {dept:20} → ENQUEUED (ARQ job started)")
+                print(f"  {name:20} → ENQUEUED (ARQ job started)")
             elif result_status == "skipped":
-                print(f"  {dept:20} → SKIPPED (already populated)")
+                print(f"  {name:20} → SKIPPED (already populated)")
 
         print("\n" + "=" * 60)
         print("Seeding jobs enqueued successfully!")

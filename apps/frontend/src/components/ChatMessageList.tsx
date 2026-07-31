@@ -14,7 +14,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({ messages }) =>
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages]);
 
   return (

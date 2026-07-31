@@ -1,6 +1,6 @@
 """Message model for storing individual conversation turns."""
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,8 +22,8 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(50))
     content: Mapped[str] = mapped_column(Text)
-    sources: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    trace: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    sources: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    trace: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
 

@@ -8,14 +8,14 @@ export const useChat = () => {
   const {
     messages,
     isLoading,
-    department,
+    knowledgeBase,
     sessionId,
     agentTrace,
     sources,
     addMessage,
     updateLastMessage,
     setLoading,
-    setDepartment,
+    setKnowledgeBase,
     clearMessages,
     setAgentTrace,
     setSources,
@@ -37,7 +37,7 @@ export const useChat = () => {
     const payload = {
       message: text,
       session_id: sessionId,
-      department: department === 'auto' ? null : department,
+      knowledge_base: knowledgeBase === 'all' ? null : knowledgeBase,
     }
 
     try {
@@ -100,16 +100,16 @@ export const useChat = () => {
       setLoading(false)
       console.error('Chat stream error:', err)
     }
-  }, [isLoading, department, sessionId, addMessage, setLoading, setAgentTrace, updateLastMessage, setSources, setError])
+  }, [isLoading, knowledgeBase, sessionId, addMessage, setLoading, setAgentTrace, updateLastMessage, setSources, setError])
 
   return {
     messages,
     isLoading,
-    department,
+    knowledgeBase,
     agentTrace,
     sources,
     sendMessage,
-    setDepartment,
+    setKnowledgeBase,
     clearMessages,
   }
 }

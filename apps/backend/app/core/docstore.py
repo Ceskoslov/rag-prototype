@@ -1,7 +1,7 @@
 """Redis-backed document store for parent document persistence."""
 
 import json
-from typing import Iterator, Optional, Sequence, Union
+from collections.abc import Iterator, Sequence
 
 import redis
 from langchain_core.documents import Document
@@ -15,14 +15,14 @@ class RedisDocStore(BaseStore[str, Document]):
     in Redis with JSON serialization. Uses a key prefix for namespacing.
 
     Key format: {prefix}:{key}
-    Example: docstore:it_support:doc123
+    Example: docstore:product_docs:doc123
     """
 
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379/0",
         prefix: str = "docstore",
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
     ):
         """Initialize Redis document store.
 
@@ -58,7 +58,7 @@ class RedisDocStore(BaseStore[str, Document]):
             metadata=obj["metadata"],
         )
 
-    def mget(self, keys: Sequence[str]) -> list[Optional[Document]]:
+    def mget(self, keys: Sequence[str]) -> list[Document | None]:
         """Get the values associated with the given keys.
 
         Args:
@@ -110,7 +110,7 @@ class RedisDocStore(BaseStore[str, Document]):
         redis_keys = [self._make_key(key) for key in keys]
         self.client.delete(*redis_keys)
 
-    def yield_keys(self, *, prefix: Optional[str] = None) -> Iterator[str]:
+    def yield_keys(self, *, prefix: str | None = None) -> Iterator[str]:
         """Get an iterator over keys that match the given prefix.
 
         Args:

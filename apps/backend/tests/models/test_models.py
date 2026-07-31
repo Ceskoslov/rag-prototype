@@ -1,26 +1,27 @@
 """Test suite for database models."""
 
-import pytest
 from datetime import datetime
+
+import pytest
 from sqlalchemy import select
 
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.evaluation import EvaluationResult
+from app.models.message import Message
 
 
 @pytest.mark.asyncio
 async def test_conversation_creation(async_session_factory_test):
     """Test creating a Conversation model."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-1", department="it_support")
+        conv = Conversation(session_id="test-session-1", knowledge_base="it_support")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
 
         assert conv.id is not None
         assert conv.session_id == "test-session-1"
-        assert conv.department == "it_support"
+        assert conv.knowledge_base == "it_support"
         assert isinstance(conv.created_at, datetime)
         assert isinstance(conv.updated_at, datetime)
 
@@ -29,7 +30,7 @@ async def test_conversation_creation(async_session_factory_test):
 async def test_message_creation(async_session_factory_test):
     """Test creating a Message model."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-2", department="it_support")
+        conv = Conversation(session_id="test-session-2", knowledge_base="it_support")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -54,7 +55,7 @@ async def test_message_creation(async_session_factory_test):
 async def test_message_with_sources_and_trace(async_session_factory_test):
     """Test Message with JSON sources and trace."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-3", department="billing")
+        conv = Conversation(session_id="test-session-3", knowledge_base="billing")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -81,7 +82,7 @@ async def test_message_with_sources_and_trace(async_session_factory_test):
 async def test_evaluation_result_creation(async_session_factory_test):
     """Test creating an EvaluationResult model."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-4", department="technical")
+        conv = Conversation(session_id="test-session-4", knowledge_base="technical")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -110,7 +111,7 @@ async def test_evaluation_result_creation(async_session_factory_test):
 async def test_conversation_message_relationship(async_session_factory_test):
     """Test bidirectional relationship between Conversation and Message."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-5", department="it_support")
+        conv = Conversation(session_id="test-session-5", knowledge_base="it_support")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -135,7 +136,7 @@ async def test_conversation_message_relationship(async_session_factory_test):
 async def test_message_cascade_delete(async_session_factory_test):
     """Test that deleting Conversation cascades to Messages."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-6", department="hr")
+        conv = Conversation(session_id="test-session-6", knowledge_base="hr")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -159,7 +160,7 @@ async def test_message_cascade_delete(async_session_factory_test):
 async def test_evaluation_cascade_delete(async_session_factory_test):
     """Test that deleting Conversation cascades to EvaluationResult."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-7", department="sales")
+        conv = Conversation(session_id="test-session-7", knowledge_base="sales")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -189,7 +190,7 @@ async def test_evaluation_cascade_delete(async_session_factory_test):
 async def test_message_role_validation(async_session_factory_test):
     """Test Message role is one of allowed values."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-8", department="support")
+        conv = Conversation(session_id="test-session-8", knowledge_base="support")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)
@@ -210,7 +211,7 @@ async def test_message_role_validation(async_session_factory_test):
 async def test_multiple_evaluation_results_per_conversation(async_session_factory_test):
     """Test multiple EvaluationResults can be associated with one Conversation."""
     async with async_session_factory_test() as session:
-        conv = Conversation(session_id="test-session-9", department="finance")
+        conv = Conversation(session_id="test-session-9", knowledge_base="finance")
         session.add(conv)
         await session.commit()
         await session.refresh(conv)

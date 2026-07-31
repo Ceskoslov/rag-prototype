@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import importlib
+from dataclasses import dataclass
 from typing import Any
 
 from langchain_openai import AzureChatOpenAI
@@ -15,7 +15,7 @@ from app.repositories.conversation import ConversationRepository
 
 def evaluate(*args: Any, **kwargs: Any) -> Any:
     ragas_module = importlib.import_module("ragas")
-    evaluate_fn = getattr(ragas_module, "evaluate")
+    evaluate_fn = ragas_module.evaluate
     return evaluate_fn(*args, **kwargs)
 
 
@@ -129,7 +129,7 @@ class EvaluationService:
 
         try:
             datasets_module = importlib.import_module("datasets")
-            dataset_class = getattr(datasets_module, "Dataset")
+            dataset_class = datasets_module.Dataset
             dataset: Any = dataset_class.from_dict(payload)
         except Exception:
             dataset = payload
@@ -137,10 +137,10 @@ class EvaluationService:
         try:
             metrics_module = importlib.import_module("ragas.metrics")
             selected_metrics = [
-                getattr(metrics_module, "faithfulness"),
-                getattr(metrics_module, "answer_relevancy"),
-                getattr(metrics_module, "context_precision"),
-                getattr(metrics_module, "context_recall"),
+                metrics_module.faithfulness,
+                metrics_module.answer_relevancy,
+                metrics_module.context_precision,
+                metrics_module.context_recall,
             ]
         except Exception:
             selected_metrics = [

@@ -1,190 +1,102 @@
-# API Reference
+# API reference
 
-This document details the available endpoints for the SkyWing Airlines Multi-Agent RAG System. All endpoints are prefixed with `/api/v1`.
+Every endpoint is prefixed with `/api/v1`. Except for `/health`, requests need
+the header `X-API-Key: <your-api-key>`.
 
-## Authentication
+Interactive OpenAPI documentation is available at `/docs`.
 
-All endpoints, except `/health`, require an API key to be sent in the request header.
+## `GET /api/v1/knowledge-bases`
 
-- **Header**: `X-API-Key: <your-api-key>`
+Returns knowledge bases discovered in Chroma and their child-chunk counts.
 
-The default API key is set via the `API_KEY` environment variable in your `.env` file.
+```json
+[
+  {"name": "company_policies", "document_chunks": 42},
+  {"name": "product_docs", "document_chunks": 87}
+]
+```
 
----
+## `POST /api/v1/chat`
 
-## Chat Endpoints
+`knowledge_base` is optional. Omit it to search all indexed knowledge bases.
+The old input name `department` is accepted temporarily as a validation alias.
 
-### 1. POST /api/v1/chat
-
-**Description**: Sends a message to the assistant and receives a full, non-streaming response. This is recommended for simple queries or environments where streaming is not supported.
-
-**Headers**:
-- `Content-Type: application/json`
-- `X-API-Key: <your-api-key>`
-
-**Request Body**:
 ```json
 {
-  "message": "What is the procedure for setting up VPN access?",
-  "session_id": "session-123",
-  "department": "it_support"
+  "message": "What is the refund window?",
+  "knowledge_base": "company_policies",
+  "session_id": "optional-session-id"
 }
 ```
-- `message` (string, required): The user's query.
-- `session_id` (string, optional): A unique ID to maintain conversation history. If omitted, a new one will be generated.
-- `department` (string, optional): One of `it_support`, `legal`, `credit_card`, `airport_ground`. If omitted, the Supervisor will automatically route the query.
 
-**Response** (200 OK):
+Response:
+
 ```json
 {
-  "answer": "To set up VPN access, you must first...",
-  "session_id": "session-123",
-  "department": "it_support",
-  "sources": ["VPN_Setup_Guide.md", "Network_Policy.md"],
-  "confidence": 0.92,
+  "answer": "The refund window is 30 days [1].",
+  "knowledge_bases": ["company_policies"],
+  "sources": ["refunds.md"],
+  "confidence": 0.9,
   "trace": {
-    "supervisor_decision": "it_support",
-    "agents_invoked": ["it_support"],
+    "knowledge_bases_searched": ["company_policies"],
     "retrieval_sources": [
-        {"title": "VPN_Setup_Guide.md", "snippet": "...", "department": "it_support"}
+      {
+        "title": "refunds.md",
+        "snippet": "Refunds are available for 30 days.",
+        "knowledge_base": "company_policies"
+      }
     ],
-    "iterations": 1
-  }
+    "iterations": 1,
+    "pipeline_steps": ["retrieve", "generate", "critique"]
+  },
+  "session_id": "optional-session-id"
 }
 ```
 
-**Curl Example**:
+Example:
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/chat \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{
-    "message": "How do I reset my password?",
-    "session_id": "demo-001",
-    "department": "it_support"
-  }'
+  -H "X-API-Key: $API_KEY" \
+  -d '{"message":"What changed in the latest release?"}'
 ```
 
----
+## `POST /api/v1/chat/stream`
 
-### 2. POST /api/v1/chat/stream
+Accepts the same request as `/chat` and returns `text/event-stream`. Events are
+JSON in `data: ...` frames:
 
-**Description**: Sends a message and receives tokens in real-time using Server-Sent Events (SSE).
+- `heartbeat`
+- `token` with a `content` field
+- `sources`
+- `trace`
+- `error` when generation fails
+- `done`
 
-**Headers**:
-- `Content-Type: application/json`
-- `X-API-Key: <your-api-key>`
-
-**Request Body**:
-Same as `POST /api/v1/chat`.
-
-**Response** (200 OK, `text/event-stream`):
-The response is a stream of events, each formatted as `data: {json}\n\n`.
-
-**Event Types**:
-- `heartbeat`: Periodic signal to keep the connection alive.
-- `token`: Individual tokens of the assistant's answer.
-- `sources`: List of documents retrieved for the answer.
-- `trace`: Metadata about agent routing and confidence.
-- `done`: Final event indicating the stream is complete.
-
-**Curl Example**:
 ```bash
 curl -N -X POST http://localhost:8000/api/v1/chat/stream \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{
-    "message": "What are the baggage weight limits?",
-    "session_id": "demo-002",
-    "department": "airport_ground"
-  }'
+  -H "X-API-Key: $API_KEY" \
+  -d '{"message":"Summarize the onboarding guide.","knowledge_base":"product_docs"}'
 ```
 
----
+## Evaluation
 
-## Evaluation Endpoints
+`POST /api/v1/evaluation/trigger` queues evaluation for an existing session:
 
-### 3. POST /api/v1/evaluation/trigger
-
-**Description**: Triggers a background evaluation task for a specific conversation session using the RAGAS framework.
-
-**Headers**:
-- `Content-Type: application/json`
-- `X-API-Key: <your-api-key>`
-
-**Request Body**:
 ```json
-{
-  "session_id": "session-123"
-}
+{"session_id": "optional-session-id"}
 ```
 
-**Response** (200 OK):
-```json
-{
-  "job_id": "evaluation:session-123",
-  "session_id": "session-123"
-}
-```
+`GET /api/v1/evaluation/results/{session_id}/status` returns `pending`,
+`complete`, or `failed`. `GET /api/v1/evaluation/results/{session_id}` returns
+faithfulness, answer relevancy, context precision, and context recall scores.
 
-**Curl Example**:
-```bash
-curl -X POST http://localhost:8000/api/v1/evaluation/trigger \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{
-    "session_id": "demo-001"
-  }'
-```
+## `GET /api/v1/health`
 
----
+Does not require an API key.
 
-### 4. GET /api/v1/evaluation/results/{session_id}
-
-**Description**: Retrieves the RAGAS evaluation scores for a completed evaluation job.
-
-**Headers**:
-- `X-API-Key: <your-api-key>`
-
-**Response** (200 OK):
-```json
-{
-  "session_id": "session-123",
-  "faithfulness": 0.95,
-  "answer_relevancy": 0.88,
-  "context_precision": 0.92,
-  "context_recall": 0.85,
-  "created_at": "2026-03-16T12:00:00Z"
-}
-```
-
----
-
-### 5. GET /api/v1/evaluation/results/{session_id}/status
-
-**Description**: Checks the current status of an evaluation job.
-
-**Headers**:
-- `X-API-Key: <your-api-key>`
-
-**Response** (200 OK):
-```json
-{
-  "session_id": "session-123",
-  "status": "complete", // or "pending", "failed"
-  "job_id": "evaluation:session-123"
-}
-```
-
----
-
-## Health Check
-
-### 6. GET /api/v1/health
-
-**Description**: Checks the health status of the API and its backend dependencies (PostgreSQL, Redis, ChromaDB). This endpoint does **not** require an API key.
-
-**Response** (200 OK):
 ```json
 {
   "status": "ok",
@@ -194,9 +106,4 @@ curl -X POST http://localhost:8000/api/v1/evaluation/trigger \
     "postgres": "ok"
   }
 }
-```
-
-**Curl Example**:
-```bash
-curl http://localhost:8000/api/v1/health
 ```

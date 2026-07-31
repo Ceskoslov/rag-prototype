@@ -1,12 +1,10 @@
 import React from 'react';
 import { SourceCard } from './SourceCard';
 
-type Department = 'it_support' | 'legal' | 'credit_card' | 'airport_ground';
-
 interface Source {
   title: string;
   snippet: string;
-  department: Department;
+  knowledge_base: string;
 }
 
 interface SourceListProps {
@@ -27,7 +25,7 @@ export const SourceList: React.FC<SourceListProps> = ({ sources }) => {
             key={idx}
             title={source.title}
             snippet={source.snippet}
-            department={source.department}
+            knowledgeBase={source.knowledge_base}
           />
         ))}
       </div>
