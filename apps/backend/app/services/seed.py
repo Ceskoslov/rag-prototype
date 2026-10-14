@@ -34,13 +34,6 @@ class SeedService:
         )
         try:
             for name in IngestionService.discover_knowledge_bases(self.data_dir):
-                try:
-                    count = self.chroma_repo.get_collection(name).count()
-                except ValueError:
-                    count = 0
-                if count > 0:
-                    results[name] = "skipped"
-                    continue
                 await pool.enqueue_job("ingest_knowledge_base_task", name)
                 logger.info("seed_enqueued", knowledge_base=name)
                 results[name] = "seeded"

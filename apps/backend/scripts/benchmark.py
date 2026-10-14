@@ -14,7 +14,7 @@ import chromadb
 from fakeredis import FakeRedis
 
 from app.core.docstore import RedisDocStore
-from app.core.embeddings import MockEmbeddings, get_embedding_model
+from app.core.embeddings import MockEmbeddings, get_embedding_model, get_reranker
 from app.core.llm import get_chat_model
 from app.core.settings import settings
 from app.repositories.vectorstore import ChromaRepository
@@ -56,7 +56,12 @@ async def main():
         await IngestionService(
             repository, store, ChunkingService(), embeddings
         ).ingest_all(args.corpus)
-        retriever = HybridRetriever(repository, store, embeddings)
+        retriever = HybridRetriever(
+            repository,
+            store,
+            embeddings,
+            get_reranker() if args.mode == "rag" else None,
+        )
         rag = RAGService(get_chat_model(), retriever) if args.mode == "rag" else None
         for case in cases:
             started = time.perf_counter()

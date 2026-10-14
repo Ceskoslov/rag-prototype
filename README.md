@@ -120,7 +120,7 @@ Backend:
 
 ```bash
 cd apps/backend
-uv sync
+uv sync --extra dev
 uv run pytest
 uv run ruff check app tests
 ```
@@ -162,3 +162,28 @@ For standalone local development, `.env` belongs in `apps/backend/` and the
 frontend Vite server reads `API_KEY` from its process environment. Copy the same
 key to that environment when changing the backend default. `docker compose`
 reads the root `.env` and forwards the backend provider settings explicitly.
+
+## Optional providers and evaluation
+
+The base install supports offline wiring and cloud embeddings without Torch or
+Ragas. For local BGE embeddings or reranking, run `uv sync --extra dev --extra
+local`. Linux/Windows resolve CPU Torch wheels. For Ragas, add `--extra
+evaluation`; it uses an independent reference and complete passages. In Compose,
+set `INSTALL_LOCAL=true` or `INSTALL_EVALUATION=true` and rebuild before selecting
+those features. `RERANKER_MODEL` enables optional CPU cross-encoder ranking.
+
+The Documents view uploads, deletes, rebuilds and reports indexing job progress.
+It needs writable `/data`; Compose supports Linux `LOCAL_UID`/`LOCAL_GID` to match
+bind-mount ownership. On hosts without persistent document storage, uploads do
+not survive redeployment. Render's current free blueprint has this limitation.
+
+New chat starts a fresh backend session. Saved sessions can be restored from
+the sidebar. Each assistant answer retains its own complete numbered evidence.
+Generation streams a draft; failed evidence checks replace it. Trace timings
+include graph stages and reported graph token usage, not billing totals.
+
+`/health` checks process liveness; `/ready` probes dependencies. Redis server
+uses the published `8.2-alpine` image. See [benchmark instructions](benchmarks/README.md)
+and [implementation record](docs/implementation-progress.md). `npm run test:e2e`
+runs browser contracts; backend tests separately cover ingestion and persisted
+streaming. CI also runs Docker startup, migration and proxy smoke checks.

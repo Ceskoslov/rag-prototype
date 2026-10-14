@@ -18,6 +18,10 @@ x-backend-env: &backend-env
   EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-BAAI/bge-m3}
   OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
   ENABLE_EVALUATION: ${ENABLE_EVALUATION:-false}
+  EVALUATION_MODEL: ${EVALUATION_MODEL:-}
+  RERANKER_MODEL: ${RERANKER_MODEL:-}
+  DENSE_MAX_DISTANCE: ${DENSE_MAX_DISTANCE:-0.8}
+  RAG_TIMEOUT_SECONDS: ${RAG_TIMEOUT_SECONDS:-180}
 
 x-backend: &backend
   build:
@@ -25,6 +29,8 @@ x-backend: &backend
     args:
       APP_UID: ${LOCAL_UID:-1000}
       APP_GID: ${LOCAL_GID:-1000}
+      INSTALL_LOCAL: ${INSTALL_LOCAL:-false}
+      INSTALL_EVALUATION: ${INSTALL_EVALUATION:-false}
   environment: *backend-env
   volumes:
     - ./data:/data
@@ -46,7 +52,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:8.1-alpine
+    image: redis:8.2-alpine
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data

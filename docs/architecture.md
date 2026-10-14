@@ -80,3 +80,25 @@ use `knowledge_base`.
 
 Docker Compose pins service versions and persists PostgreSQL, Redis, and Chroma
 data in named volumes. Chroma uses `/data` and its v2 heartbeat endpoint.
+
+## Snapshot publication and streaming
+
+`rag_catalog` in Chroma records the active collection for each knowledge base.
+Ingestion builds a new `idx_<uuid>` collection and generation-prefixed Redis
+parents, and upserts the catalog pointer only after the complete build succeeds.
+Embedding and chunking fingerprints make changed configurations rebuildable.
+Old parents expire after a reader grace period; old Chroma collections are
+collected on later ingestion. BM25 document and combined corpus caches are keyed
+by collection versions. Dense and lexical rankings are fused globally; lexical
+IDF is computed over the complete targeted corpus. Optional reranking follows
+parent expansion.
+
+Async LangGraph nodes emit progress, actual model chunks and verification.
+Each draft is replaced on another generation iteration; final rejection replaces
+it with an evidence-insufficient answer. Cancellation propagates into async
+model generation. Complete evidence, index versions and final graph metrics are
+saved with assistant messages.
+
+The demo uses shared credentials and sessions; user identity, ACLs and tenant
+isolation require a separate product authentication design. OCR and advanced
+layout parsing are not implemented; scanned PDFs return an extraction error.

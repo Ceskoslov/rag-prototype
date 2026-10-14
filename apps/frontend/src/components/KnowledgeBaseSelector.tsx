@@ -1,6 +1,7 @@
 import React from 'react';
 
 interface KnowledgeBaseSelectorProps {
+  disabled?: boolean;
   value: string;
   options: string[];
   onChange: (knowledgeBase: string) => void;
@@ -13,6 +14,7 @@ const labelFor = (value: string) =>
     .join(' ')
 
 export const KnowledgeBaseSelector: React.FC<KnowledgeBaseSelectorProps> = ({
+  disabled = false,
   value,
   options,
   onChange,
@@ -25,6 +27,7 @@ export const KnowledgeBaseSelector: React.FC<KnowledgeBaseSelectorProps> = ({
       <select
         id="knowledge-base-select"
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         className="border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
       >

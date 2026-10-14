@@ -62,3 +62,48 @@ record their index snapshot. Traces contain stage timings, first-token latency
 and provider-reported graph token usage. Live and ready endpoints are separate;
 ready actually probes dependencies. HTTP logs include request IDs and timings
 without logging prompts or document bodies.
+
+## Step 6
+
+Base/cloud dependencies no longer install Torch or Ragas. CPU Torch is optional,
+and evaluation has its own installation group. Ragas 0.4.3 cannot import with
+community 0.4.2 (legacy VertexAI module removed), so the evaluation extra pins
+community 0.4.1; a real factory contract check catches this incompatibility.
+FastAPI, LangGraph, LangChain core, React, Vite and Tailwind were updated.
+TypeScript remains 5.9: current typescript-eslint excludes 7 and TypeScript 7
+removes baseUrl. Removed the unsupported shadcn-ui package and unused CLI/forms
+dependencies. Fixed the generic lib ignore rule to include frontend API code.
+
+CI covers core/backend regression, evaluator factories, independent retrieval,
+SQLite migrations, frontend unit/build/lint, browser contracts and Docker smoke.
+Container image inspection discovered that redis:8.1-alpine does not exist;
+redis:8.2-alpine was verified instead. Docker installs dependencies without trying
+to build the app before source files are copied. Build contexts exclude secrets
+and local dependencies. Local Docker startup remains unverified because the
+daemon is unavailable; its CI job must be checked after the final push.
+
+## Deferred decisions
+
+- Actual provider quality/latency and reranker comparisons need real credentials
+  and representative documents. Offline numbers are wiring regression only.
+- ARQ is retained at its current release for compatibility; a queue replacement
+  needs a separate migration decision, despite its maintenance-only status.
+- OCR/layout parsing, user ACLs, multi-tenancy and alternate storage architecture
+  remain product decisions. They are not prerequisites for this local demo.
+- Configurable token pricing and production billing attribution are not included.
+
+## Final local validation (2026-10-14)
+
+- With evaluation extra: 82 backend tests pass, including real Ragas factory
+  initialization with no provider request.
+- Base plus dev: 81 backend tests pass; the optional Ragas factory test is
+  explicitly skipped. Neither Torch nor Ragas is installed.
+- Frontend: 40 unit tests, lint and production build pass after npm ci.
+- Browser: two Playwright workflows pass (chat evidence/new session/document
+  lifecycle and premature stream EOF).
+- Fictional retrieval benchmark: Recall@6 1.0 and MRR 0.9722 across 19 cases;
+  these are offline wiring numbers, not a real-model quality claim.
+- Fresh SQLite Alembic upgrade, locked dependency checks, shell syntax and both
+  Compose configs pass. Required Redis/Chroma/uv/Nginx image manifests exist.
+- No Docker daemon or real provider credentials are available locally. Container
+  acceptance and real model quality must be evaluated independently.

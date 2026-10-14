@@ -27,7 +27,7 @@ class RagasEvaluator:
         if settings.llm_provider == "mock":
             raise ValueError("Mock providers cannot produce meaningful quality metrics")
         from openai import AsyncAzureOpenAI, AsyncOpenAI
-        from ragas.embeddings import embedding_factory
+        from ragas.embeddings.base import embedding_factory
         from ragas.llms import llm_factory
         from ragas.metrics.collections import (
             AnswerRelevancy,

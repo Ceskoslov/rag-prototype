@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import chromadb
 from chromadb.api import ClientAPI
 from chromadb.api.types import Include, Metadata
+from chromadb.errors import NotFoundError
 
 from app.core.settings import settings
 from app.schemas.common import normalize_knowledge_base
@@ -133,17 +134,21 @@ class ChromaRepository:
     def get_collection(self, knowledge_base: str) -> ChromaCollection:
         normalized = normalize_knowledge_base(knowledge_base)
         active = self.index_record(normalized)
-        candidates = ([str(active["collection"])] if active else []) + [
-            self._collection_name(normalized),
-            f"{normalized}{self._LEGACY_SUFFIX}",
-        ]
+        candidates = (
+            [str(active["collection"])]
+            if active
+            else [
+                self._collection_name(normalized),
+                f"{normalized}{self._LEGACY_SUFFIX}",
+            ]
+        )
         for name in candidates:
             try:
                 return cast(
                     ChromaCollection,
                     self.client.get_collection(name=name, embedding_function=None),
                 )
-            except Exception:
+            except NotFoundError:
                 continue
         raise ValueError(f"Unknown knowledge base: {normalized}")
 

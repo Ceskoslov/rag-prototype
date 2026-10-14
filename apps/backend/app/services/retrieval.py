@@ -44,7 +44,8 @@ class HybridRetriever:
         self.docstore = docstore
         self.embedding_model = embedding_model
         self.reranker = reranker
-        self._cache: dict[str, tuple[str, BM25L | None, list[Document]]] = {}
+        self._cache: dict[str, tuple[str, list[Document]]] = {}
+        self._global_lexical_cache: tuple[tuple[str, ...], BM25L | None] | None = None
         self._lock = RLock()
 
     def invoke(
@@ -70,6 +71,8 @@ class HybridRetriever:
         vector = self.embedding_model.embed_query(query)
         dense: list[Document] = []
         lexical: list[tuple[float, Document]] = []
+        lexical_documents: list[Document] = []
+        versions: list[str] = []
         query_tokens = _tokenize(query)
         for target in targets:
             try:
@@ -83,7 +86,9 @@ class HybridRetriever:
                 raise ValueError(
                     f"Embedding configuration changed for {target}; rebuild its index"
                 )
-            index, documents = self._lexical_snapshot(target, collection)
+            documents = self._lexical_snapshot(target, collection)
+            lexical_documents.extend(documents)
+            versions.append(collection.name)
             for item in self.vector_repository.similarity_search(
                 collection, vector, max(20, k * 4)
             ):
@@ -104,11 +109,25 @@ class HybridRetriever:
                         },
                     )
                 )
-            if index and query_tokens:
-                scores = index.get_scores(query_tokens)
-                for score, document in zip(scores, documents, strict=True):
-                    if set(query_tokens).intersection(_tokenize(document.page_content)):
-                        lexical.append((float(score), document))
+        with self._lock:
+            version_key = tuple(versions)
+            if (
+                self._global_lexical_cache is None
+                or self._global_lexical_cache[0] != version_key
+            ):
+                corpus = [
+                    _tokenize(document.page_content) for document in lexical_documents
+                ]
+                self._global_lexical_cache = (
+                    version_key,
+                    BM25L(corpus) if corpus and any(corpus) else None,
+                )
+            index = self._global_lexical_cache[1]
+        if index and query_tokens:
+            scores = index.get_scores(query_tokens)
+            for score, document in zip(scores, lexical_documents, strict=True):
+                if set(query_tokens).intersection(_tokenize(document.page_content)):
+                    lexical.append((float(score), document))
         dense.sort(key=lambda document: document.metadata["distance"])
         lexical.sort(key=lambda pair: pair[0], reverse=True)
         fused = self._reciprocal_rank_fusion(
@@ -128,19 +147,17 @@ class HybridRetriever:
     def invalidate(self, knowledge_base: str) -> None:
         with self._lock:
             self._cache.pop(normalize_knowledge_base(knowledge_base), None)
+            self._global_lexical_cache = None
 
     def _lexical_snapshot(
         self, knowledge_base: str, collection: ChromaCollection
-    ) -> tuple[BM25L | None, list[Document]]:
+    ) -> list[Document]:
         with self._lock:
             cached = self._cache.get(knowledge_base)
             if cached is None or cached[0] != collection.name:
-                documents = self._load_child_documents(collection)
-                corpus = [_tokenize(document.page_content) for document in documents]
-                index = BM25L(corpus) if corpus and any(corpus) else None
-                cached = (collection.name, index, documents)
+                cached = (collection.name, self._load_child_documents(collection))
                 self._cache[knowledge_base] = cached
-            return cached[1], cached[2]
+            return cached[1]
 
     @staticmethod
     def _reciprocal_rank_fusion(

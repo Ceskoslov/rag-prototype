@@ -1,4 +1,3 @@
-
 import chromadb
 import pytest
 from fakeredis import FakeRedis
@@ -95,3 +94,17 @@ def test_pdf_pages_have_distinct_parent_ids():
         chunker.chunk_document(documents[0])[0].id
         != chunker.chunk_document(documents[1])[0].id
     )
+
+
+@pytest.mark.asyncio
+async def test_retriever_rejects_a_different_embedding_space(index_stack):
+    _repo, _store, ingestion, retriever, data = index_stack
+    (data / "policies" / "refund.md").write_text("Refund window is 30 days")
+    await ingestion.ingest_all(data)
+
+    class DifferentEmbeddingSpace(MockEmbeddings):
+        pass
+
+    retriever.embedding_model = DifferentEmbeddingSpace()
+    with pytest.raises(ValueError, match="Embedding configuration changed"):
+        retriever.retrieve("refund", "policies")

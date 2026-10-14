@@ -4,7 +4,8 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -15,7 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:0.12.0 /uv /bin/uv
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+ARG INSTALL_LOCAL=false
+ARG INSTALL_EVALUATION=false
+RUN set -- --frozen --no-dev --no-install-project; \
+    if [ "$INSTALL_LOCAL" = true ]; then set -- "$@" --extra local; fi; \
+    if [ "$INSTALL_EVALUATION" = true ]; then set -- "$@" --extra evaluation; fi; \
+    uv sync "$@"
 
 COPY . .
 
@@ -25,7 +31,8 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

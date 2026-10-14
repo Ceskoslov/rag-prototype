@@ -10,8 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -72,3 +72,7 @@ chroma_data/
 
 # Redis
 dump.rdb
+
+benchmark-report.json
+apps/frontend/playwright-report/
+apps/frontend/test-results/

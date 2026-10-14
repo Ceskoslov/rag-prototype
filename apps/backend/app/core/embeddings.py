@@ -18,7 +18,10 @@ def get_embedding_model(settings: object) -> Embeddings:
         return MockEmbeddings()
 
     if provider == "local":
-        from langchain_huggingface import HuggingFaceEmbeddings
+        try:
+            from langchain_huggingface import HuggingFaceEmbeddings
+        except ImportError as exc:
+            raise ValueError("Install the local extra: uv sync --extra local") from exc
 
         model_name = str(getattr(settings, "embedding_model_name", "BAAI/bge-m3"))
         cache_key = (provider, model_name)
@@ -103,3 +106,15 @@ def embedding_signature(model: Embeddings) -> str:
         "endpoint": settings.azure_openai_endpoint or "",
     }
     return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+
+
+def get_reranker():
+    from app.core.settings import settings
+
+    if not settings.reranker_model:
+        return None
+    try:
+        from sentence_transformers import CrossEncoder
+    except ImportError as exc:
+        raise ValueError("Reranking requires uv sync --extra local") from exc
+    return CrossEncoder(settings.reranker_model, device="cpu")

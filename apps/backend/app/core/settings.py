@@ -12,6 +12,7 @@ class Settings(BaseSettings):
         env_file=Path(__file__).resolve().parents[2] / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        env_parse_none_str="null",
     )
 
     environment: str = "development"
@@ -24,7 +25,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
     cors_origin_regex: str | None = None
-    enable_evaluation: bool = True
+    enable_evaluation: bool = False
     evaluation_model: str | None = None
     rag_timeout_seconds: float = 180
 
@@ -40,7 +41,7 @@ class Settings(BaseSettings):
     dense_max_distance: float | None = 0.8
     reranker_model: str | None = None
 
-    embedding_provider: str = "local"
+    embedding_provider: str = "mock"
     embedding_model_name: str = "BAAI/bge-m3"
     openai_embedding_model: str = "text-embedding-3-small"
 

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_session
 from app.core.docstore import RedisDocStore
-from app.core.embeddings import get_embedding_model
+from app.core.embeddings import get_embedding_model, get_reranker
 from app.core.llm import get_chat_model
 from app.core.settings import settings
 from app.models.conversation import Conversation
@@ -38,6 +38,7 @@ def _create_rag_service() -> RAGService:
         vector_repository=chroma_repo,
         docstore=docstore,
         embedding_model=get_embedding_model(settings),
+        reranker=get_reranker(),
     )
     return RAGService(llm=llm, retriever=retriever)
 

@@ -6,6 +6,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   sources?: SourceDocument[]
+  trace?: AgentTrace
 }
 
 export interface SourceDocument {
@@ -58,7 +59,7 @@ export const useChatStore = create<ChatStore>()(
         setStage: (stage) => set({ stage }),
         setVerified: (verified) => set({ verified }),
         replaceLastMessage: (content) => set((state) => ({ messages: state.messages.map((message, index) => index === state.messages.length - 1 ? { ...message, content } : message) })),
-        restoreSession: (sessionId, knowledgeBase, messages) => set({ sessionId, knowledgeBase, messages, sources: messages.at(-1)?.sources || [], agentTrace: null, error: null, stage: "", verified: false }),
+        restoreSession: (sessionId, knowledgeBase, messages) => set({ sessionId, knowledgeBase, messages, sources: messages.at(-1)?.sources || [], agentTrace: messages.at(-1)?.trace || null, error: null, stage: "", verified: Boolean(messages.at(-1)?.trace?.grounded) }),
         addMessage: (role, content) =>
           set((state) => ({
             messages: [...state.messages, { role, content }],

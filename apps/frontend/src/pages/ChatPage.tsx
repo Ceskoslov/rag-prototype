@@ -37,6 +37,7 @@ export const ChatPage: React.FC = () => {
         </div>
         <KnowledgeBaseSelector
           value={knowledgeBase}
+          disabled={isLoading}
           options={knowledgeBases}
           onChange={setKnowledgeBase}
         />

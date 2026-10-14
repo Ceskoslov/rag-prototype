@@ -84,6 +84,12 @@ class IngestionService:
             )
         for name in self.chroma_repo.list_knowledge_bases():
             if not (data_dir / name).is_dir():
+                record = self.chroma_repo.index_record(name)
+                if record:
+                    for key in self.docstore.yield_keys(
+                        prefix=str(record["collection"]) + ":"
+                    ):
+                        self.docstore.client.expire(self.docstore._make_key(key), 600)
                 self.chroma_repo.delete_collection(name)
         return results
 
