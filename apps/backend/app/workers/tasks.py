@@ -60,16 +60,13 @@ async def ingest_knowledge_base_task(
             knowledge_base=knowledge_base,
             job_id=ctx.get("job_id"),
         )
-        return {
-            "status": "failed",
-            "error": str(exc),
-            "knowledge_base": knowledge_base,
-        }
+        raise
 
 
 async def evaluate_conversation_task(
     ctx: dict[str, Any],
     session_id: str,
+    references: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     logger.info(
         "evaluate_task_started", session_id=session_id, job_id=ctx.get("job_id")
@@ -78,13 +75,15 @@ async def evaluate_conversation_task(
     try:
         async with async_session_factory() as session:
             service = EvaluationService(session=session)
-            result = await service.evaluate_conversation(session_id)
+            result = await service.evaluate_conversation(session_id, references)
 
         metrics = {
             "faithfulness": float(result.faithfulness),
             "answer_relevancy": float(result.answer_relevancy),
             "context_precision": float(result.context_precision),
-            "context_recall": float(result.context_recall),
+            "context_recall": float(result.context_recall)
+            if result.context_recall is not None
+            else None,
         }
         logger.info(
             "evaluate_task_completed",
@@ -104,8 +103,4 @@ async def evaluate_conversation_task(
             error=str(exc),
             job_id=ctx.get("job_id"),
         )
-        return {
-            "status": "failed",
-            "session_id": session_id,
-            "error": str(exc),
-        }
+        raise

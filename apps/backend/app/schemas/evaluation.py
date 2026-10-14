@@ -9,7 +9,7 @@ class RAGASMetrics(BaseModel):
     faithfulness: float = Field(..., description="Faithfulness metric (0-1)")
     answer_relevancy: float = Field(..., description="Answer relevancy metric (0-1)")
     context_precision: float = Field(..., description="Context precision metric (0-1)")
-    context_recall: float = Field(..., description="Context recall metric (0-1)")
+    context_recall: float | None = Field(..., description="Context recall metric (0-1)")
 
 
 class EvaluationRequest(BaseModel):
@@ -26,6 +26,10 @@ class EvaluationResult(BaseModel):
 
 
 class EvaluationTriggerRequest(BaseModel):
+    references: dict[str, str] = Field(
+        default_factory=dict,
+        description="Independent reference answers keyed by exact question",
+    )
     session_id: str = Field(..., description="Session ID to evaluate")
 
 
@@ -39,7 +43,8 @@ class EvaluationResultResponse(BaseModel):
     faithfulness: float
     answer_relevancy: float
     context_precision: float
-    context_recall: float
+    context_recall: float | None
+    details: dict | None = None
     created_at: datetime
 
 

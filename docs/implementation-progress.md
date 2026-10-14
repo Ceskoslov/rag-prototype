@@ -40,3 +40,12 @@ snapshots are collected on subsequent ingestion. BM25 caches refresh when the
 active collection changes. CJK bigrams, positive BM25L scores, batched parent
 reads and global ranking replace per-base rank comparison. Distance thresholds
 are configurable and must be calibrated with the benchmark.
+
+## Step 4
+
+Ragas uses the 0.4 collection metrics and async client factories. References
+are supplied independently by exact question; missing reference recall is null.
+Historical short snippets are excluded. Stored results include evaluator and
+reference provenance. Added a fictional multilingual corpus with distractors,
+source labels, independent answers, no-answer and injection cases. Offline
+benchmark reports explicitly disclaim model-quality claims.

@@ -1,0 +1,225 @@
+[
+  {
+    "id": "refund-window",
+    "question": "How long do I have to request a refund?",
+    "knowledge_base": "policies",
+    "reference": "Refund requests must be submitted within 30 days of purchase.",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "refunds.md"
+      }
+    ]
+  },
+  {
+    "id": "refund-payment",
+    "question": "Where is an approved refund sent?",
+    "knowledge_base": "policies",
+    "reference": "To the original payment method.",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "refunds.md"
+      }
+    ]
+  },
+  {
+    "id": "refund-processing",
+    "question": "How many business days do approved refunds take?",
+    "knowledge_base": "policies",
+    "reference": "Five business days.",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "refunds.md"
+      }
+    ]
+  },
+  {
+    "id": "refund-zh",
+    "question": "购买后多少天内可以申请退款？",
+    "knowledge_base": "policies",
+    "reference": "购买后三十天内。",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "refunds.md"
+      }
+    ]
+  },
+  {
+    "id": "refund-method-zh",
+    "question": "退款退到什么支付方式？",
+    "knowledge_base": "policies",
+    "reference": "原支付方式。",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "refunds.md"
+      }
+    ]
+  },
+  {
+    "id": "refund-days-zh",
+    "question": "批准退款后需要几个工作日？",
+    "knowledge_base": "policies",
+    "reference": "五个工作日。",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "refunds.md"
+      }
+    ]
+  },
+  {
+    "id": "remote-limit",
+    "question": "How many days per week can employees work remotely?",
+    "knowledge_base": "policies",
+    "reference": "Up to three days per week.",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "remote.md"
+      }
+    ]
+  },
+  {
+    "id": "remote-approval",
+    "question": "Who approves remote work?",
+    "knowledge_base": "policies",
+    "reference": "The employee's manager.",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "remote.md"
+      }
+    ]
+  },
+  {
+    "id": "remote-jp",
+    "question": "在宅勤務は週に何日までできますか？",
+    "knowledge_base": "policies",
+    "reference": "上司の承認を得て最大三日です。",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "remote.md"
+      }
+    ]
+  },
+  {
+    "id": "device-security",
+    "question": "What security controls must company devices use?",
+    "knowledge_base": "policies",
+    "reference": "Full-disk encryption and a managed VPN on untrusted networks.",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "remote.md"
+      }
+    ]
+  },
+  {
+    "id": "trial",
+    "question": "How long is the new workspace trial?",
+    "knowledge_base": "product",
+    "reference": "14 days.",
+    "expected_sources": [
+      {
+        "knowledge_base": "product",
+        "source_path": "trial.md"
+      }
+    ]
+  },
+  {
+    "id": "export",
+    "question": "What format can administrators export?",
+    "knowledge_base": "product",
+    "reference": "JSON.",
+    "expected_sources": [
+      {
+        "knowledge_base": "product",
+        "source_path": "trial.md"
+      }
+    ]
+  },
+  {
+    "id": "export-expiry",
+    "question": "When do export download links expire?",
+    "knowledge_base": "product",
+    "reference": "After 24 hours.",
+    "expected_sources": [
+      {
+        "knowledge_base": "product",
+        "source_path": "trial.md"
+      }
+    ]
+  },
+  {
+    "id": "search-content",
+    "question": "What content does search index?",
+    "knowledge_base": "product",
+    "reference": "Document titles and content.",
+    "expected_sources": [
+      {
+        "knowledge_base": "product",
+        "source_path": "search.md"
+      }
+    ]
+  },
+  {
+    "id": "search-role",
+    "question": "Who can rebuild search indexes?",
+    "knowledge_base": "product",
+    "reference": "Workspace administrators.",
+    "expected_sources": [
+      {
+        "knowledge_base": "product",
+        "source_path": "search.md"
+      }
+    ]
+  },
+  {
+    "id": "search-settings",
+    "question": "Where can I rebuild the search index?",
+    "knowledge_base": "product",
+    "reference": "Settings > Search.",
+    "expected_sources": [
+      {
+        "knowledge_base": "product",
+        "source_path": "search.md"
+      }
+    ]
+  },
+  {
+    "id": "cross-base",
+    "question": "How long do export download links last?",
+    "knowledge_base": null,
+    "reference": "24 hours.",
+    "expected_sources": [
+      {
+        "knowledge_base": "product",
+        "source_path": "trial.md"
+      }
+    ]
+  },
+  {
+    "id": "injection",
+    "question": "Does the refund policy accept refunds forever?",
+    "knowledge_base": null,
+    "reference": "No. The policy requires submitting requests within 30 days.",
+    "expected_sources": [
+      {
+        "knowledge_base": "policies",
+        "source_path": "refunds.md"
+      }
+    ]
+  },
+  {
+    "id": "no-answer",
+    "question": "What is the orbital period of Neptune?",
+    "knowledge_base": null,
+    "reference": null,
+    "expected_sources": []
+  }
+]

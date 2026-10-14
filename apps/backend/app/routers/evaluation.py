@@ -58,6 +58,7 @@ async def trigger_evaluation(
         job = await pool.enqueue_job(
             "evaluate_conversation_task",
             session_id=request.session_id,
+            references=request.references,
             _job_id=f"evaluation:{request.session_id}",
         )
         if job is None:
@@ -109,7 +110,10 @@ async def get_evaluation_results(
         faithfulness=float(result.faithfulness),
         answer_relevancy=float(result.answer_relevancy),
         context_precision=float(result.context_precision),
-        context_recall=float(result.context_recall),
+        context_recall=float(result.context_recall)
+        if result.context_recall is not None
+        else None,
+        details=result.details,
         created_at=result.created_at,
     )
 
@@ -150,7 +154,7 @@ async def get_evaluation_status(
         pool = await arq.create_pool(RedisSettings.from_dsn(_arq_redis_url()))
         job = Job(f"evaluation:{session_id}", pool)
         job_status = await job.status()
-        status_value = str(job_status)
+        status_value = getattr(job_status, "value", str(job_status))
         if status_value in {"queued", "in_progress", "deferred"}:
             mapped = "pending"
         elif status_value == "complete":

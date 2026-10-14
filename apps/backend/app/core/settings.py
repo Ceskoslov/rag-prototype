@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
     cors_origin_regex: str | None = None
     enable_evaluation: bool = True
+    evaluation_model: str | None = None
 
     llm_provider: str = "mock"
     openai_api_key: str | None = None

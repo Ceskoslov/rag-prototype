@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Numeric
+from sqlalchemy import JSON, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -23,7 +23,10 @@ class EvaluationResult(Base):
     faithfulness: Mapped[float] = mapped_column(Numeric(precision=5, scale=4))
     answer_relevancy: Mapped[float] = mapped_column(Numeric(precision=5, scale=4))
     context_precision: Mapped[float] = mapped_column(Numeric(precision=5, scale=4))
-    context_recall: Mapped[float] = mapped_column(Numeric(precision=5, scale=4))
+    context_recall: Mapped[float | None] = mapped_column(
+        Numeric(precision=5, scale=4), nullable=True
+    )
+    details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     conversation: Mapped["Conversation"] = relationship(
         back_populates="evaluation_results"
