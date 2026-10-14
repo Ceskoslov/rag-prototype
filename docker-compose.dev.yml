@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   api:
     build:
@@ -22,7 +20,7 @@ services:
       - ./apps/backend:/app
       - /app/.venv
       - /app/__pycache__
-    command: arq app.tasks.WorkerSettings --watch
+    command: arq app.workers.worker.WorkerSettings --watch /app/app
     environment:
       ENVIRONMENT: development
       PYTHONDONTWRITEBYTECODE: "1"
@@ -36,7 +34,7 @@ services:
       - ./apps/frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_URL: http://localhost/api
+      API_PROXY_TARGET: http://api:8000
       NODE_ENV: development
 
   postgres:

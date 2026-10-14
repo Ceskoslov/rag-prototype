@@ -20,10 +20,11 @@ class WorkerSettings:
     ]
 
     redis_settings: RedisSettings = RedisSettings.from_dsn(
-        settings.arq_redis_url or f"{settings.redis_url.rstrip('/0')}/1"
+        settings.arq_redis_url or settings.redis_url.rsplit("/", 1)[0] + "/1"
     )
 
-    max_jobs: int = 5
+    health_check_interval: int = 15
+    max_jobs: int = 1
     job_timeout: int = 300
     keep_result: int = 3600
 

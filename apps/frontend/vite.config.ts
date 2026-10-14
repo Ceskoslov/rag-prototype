@@ -11,9 +11,11 @@ export default defineConfig({
     },
   },
   server: {
+    host: "0.0.0.0",
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:8000',
+        headers: { 'X-API-Key': process.env.API_KEY || 'test-api-key-12345' },
         changeOrigin: true,
         ws: true,
       },

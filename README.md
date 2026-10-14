@@ -74,8 +74,8 @@ there is no agent-to-agent routing overhead.
 
 5. Open `http://localhost:3000`.
 
-The default `LLM_PROVIDER=mock` is useful for wiring checks but does not generate
-real answers. Set `LLM_PROVIDER=openai` and `OPENAI_API_KEY`, or configure the
+The default `LLM_PROVIDER=mock` and `EMBEDDING_PROVIDER=mock` are useful for wiring checks but does not generate
+real answers or meaningful semantic retrieval. Set `EMBEDDING_PROVIDER=openai` or `local` and `LLM_PROVIDER=openai` and `OPENAI_API_KEY`, or configure the
 Azure variables, for actual generation.
 
 ## Deploy on Render
@@ -148,3 +148,17 @@ npm run build
 ## License
 
 See the repository license, if present.
+
+## Local startup and credentials
+
+Compose runs Alembic before the API, waits for the worker health key before
+seeding, and serves HTTP without requiring local certificates. Open
+`http://localhost:3000` or `http://localhost`. Vite and Nginx attach the API key
+server-side; local browsers do not need a `VITE_API_KEY`. Bindings default to
+loopback. For a public deployment, put TLS and user authentication at the edge.
+The shared demo key does not provide user or conversation isolation.
+
+For standalone local development, `.env` belongs in `apps/backend/` and the
+frontend Vite server reads `API_KEY` from its process environment. Copy the same
+key to that environment when changing the backend default. `docker compose`
+reads the root `.env` and forwards the backend provider settings explicitly.

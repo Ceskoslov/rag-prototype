@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from langchain_core.embeddings import Embeddings
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import AzureOpenAIEmbeddings, OpenAIEmbeddings
 from pydantic import SecretStr
 
@@ -15,7 +14,12 @@ def clear_embedding_model_cache() -> None:
 def get_embedding_model(settings: object) -> Embeddings:
     provider = str(getattr(settings, "embedding_provider", "local")).casefold()
 
+    if provider == "mock":
+        return MockEmbeddings()
+
     if provider == "local":
+        from langchain_huggingface import HuggingFaceEmbeddings
+
         model_name = str(
             getattr(settings, "embedding_model_name", "BAAI/bge-m3")
         )
@@ -63,4 +67,23 @@ def get_embedding_model(settings: object) -> Embeddings:
             )
         return _EMBEDDING_MODEL_CACHE[cache_key]
 
-    raise ValueError("EMBEDDING_PROVIDER must be one of: local, openai, azure")
+    raise ValueError("EMBEDDING_PROVIDER must be one of: local, openai, azure, mock")
+
+
+class MockEmbeddings(Embeddings):
+    """Deterministic feature hashing for offline wiring checks, not quality evals."""
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self.embed_query(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        import hashlib
+        import math
+        import re
+
+        vector = [0.0] * 64
+        for token in re.findall(r"\w+", text.casefold()):
+            digest = hashlib.sha256(token.encode()).digest()
+            vector[int.from_bytes(digest[:2]) % 64] += 1.0
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        return [value / norm for value in vector]

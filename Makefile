@@ -14,8 +14,7 @@ test:
 	cd apps/frontend && npm test
 
 seed:
-	curl -X POST http://localhost:8000/api/v1/seed \
-		-H "X-API-Key: your-secret-api-key-change-in-production"
+	docker compose exec api python scripts/ingest.py --all --data-dir /data
 
 evaluate:
 	curl -X POST http://localhost:8000/api/v1/evaluation/trigger \
