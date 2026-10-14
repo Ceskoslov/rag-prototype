@@ -107,3 +107,10 @@ daemon is unavailable; its CI job must be checked after the final push.
   Compose configs pass. Required Redis/Chroma/uv/Nginx image manifests exist.
 - No Docker daemon or real provider credentials are available locally. Container
   acceptance and real model quality must be evaluated independently.
+
+## CI follow-up
+
+The first remote run failed to resolve setup-uv's `v10` major alias before any
+backend command ran. The published `v10.3.0` release is used explicitly in the
+follow-up commit. Frontend unit/lint/build had already passed remotely; browser
+and container acceptance are being monitored separately.
