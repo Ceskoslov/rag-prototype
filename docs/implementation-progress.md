@@ -118,3 +118,8 @@ and container acceptance are being monitored separately.
 Remote lint also exposed a missing executable bit on the benchmark script's
 shebang. The file mode is recorded explicitly in Git, including the smoke script,
 so fresh Linux checkouts behave consistently.
+
+Container CI confirmed Postgres migration, API readiness, worker health and all
+six seed knowledge bases. The frontend started successfully but its BusyBox
+wget health probe failed against localhost; it now uses explicit IPv4 loopback
+matching Vite's binding. Failure diagnostics include the frontend health log.

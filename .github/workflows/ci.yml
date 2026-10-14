@@ -69,7 +69,12 @@ jobs:
       - run: docker compose config -q
       - run: docker compose up --build -d --wait --wait-timeout 300
       - run: bash scripts/smoke.sh
-      - run: docker compose logs --no-color
+      - run: |
+          docker compose logs --no-color
+          task_frontend_id=$(docker compose ps -q frontend)
+          if [ -n "$task_frontend_id" ]; then
+            docker inspect --format '{{json .State.Health}}' "$task_frontend_id"
+          fi
         if: failure()
       - run: docker compose down
         if: always()
