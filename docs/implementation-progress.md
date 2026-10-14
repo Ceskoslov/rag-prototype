@@ -114,3 +114,7 @@ The first remote run failed to resolve setup-uv's `v10` major alias before any
 backend command ran. The published `v10.3.0` release is used explicitly in the
 follow-up commit. Frontend unit/lint/build had already passed remotely; browser
 and container acceptance are being monitored separately.
+
+Remote lint also exposed a missing executable bit on the benchmark script's
+shebang. The file mode is recorded explicitly in Git, including the smoke script,
+so fresh Linux checkouts behave consistently.
