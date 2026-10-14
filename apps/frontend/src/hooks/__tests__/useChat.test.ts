@@ -40,3 +40,32 @@ describe('useChat', () => {
     expect(useChatStore.getState().messages.at(-1)?.content).toBe('Answer')
   })
 })
+
+
+describe('stream failures', () => {
+  beforeEach(() => useChatStore.setState({ messages: [], isLoading: false, error: null }))
+  const responseFor = (frames: string) => ({ ok: true, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(frames)); controller.close() } }) })
+
+  it('handles server error events and releases loading state', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(responseFor('data: {"type":"error","data":{"message":"Provider unavailable"}}\n\n')))
+    const { result } = renderHook(() => useChat())
+    await act(async () => result.current.sendMessage('Question'))
+    expect(useChatStore.getState().error).toBe('Provider unavailable')
+    expect(useChatStore.getState().isLoading).toBe(false)
+  })
+
+  it('reports a stream that closes without done', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(responseFor('data: {"type":"token","content":"Draft"}\n\n')))
+    const { result } = renderHook(() => useChat())
+    await act(async () => result.current.sendMessage('Question'))
+    expect(useChatStore.getState().error).toMatch('Connection ended')
+    expect(useChatStore.getState().isLoading).toBe(false)
+  })
+
+  it('replaces rejected drafts rather than appending them', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(responseFor('data: {"type":"token","content":"Bad draft"}\n\ndata: {"type":"reset","content":"Evidence insufficient"}\n\ndata: {"type":"done"}\n\n')))
+    const { result } = renderHook(() => useChat())
+    await act(async () => result.current.sendMessage('Question'))
+    expect(useChatStore.getState().messages.at(-1)?.content).toBe('Evidence insufficient')
+  })
+})

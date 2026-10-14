@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import time
+import uuid
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.core.logging import configure_logging, get_logger
 from app.core.settings import settings
 from app.middleware.auth import verify_api_key
 from app.routers import chat, health, knowledge_bases
+
+configure_logging()
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="Universal RAG API",
@@ -17,20 +24,21 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        origin.strip()
-        for origin in settings.cors_origins.split(",")
-        if origin.strip()
+        origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()
     ],
     allow_origin_regex=settings.cors_origin_regex,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "X-API-Key"],
 )
 
 
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
-    if request.method == "OPTIONS" or request.url.path == "/api/v1/health":
+    if request.method == "OPTIONS" or request.url.path in {
+        "/api/v1/health",
+        "/api/v1/ready",
+    }:
         return await call_next(request)
 
     try:
@@ -50,3 +58,20 @@ if settings.enable_evaluation:
     from app.routers import evaluation
 
     app.include_router(evaluation.router)
+
+
+@app.middleware("http")
+async def request_trace(request: Request, call_next):
+    request_id = uuid.uuid4().hex
+    started = time.perf_counter()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "http_request",
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        status=response.status_code,
+        duration_ms=round((time.perf_counter() - started) * 1000, 2),
+    )
+    return response

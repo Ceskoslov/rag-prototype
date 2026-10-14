@@ -40,11 +40,13 @@ class IngestionService:
         docstore: RedisDocStore,
         chunking_service: ChunkingService,
         embedding_model: Embeddings,
+        progress=None,
     ) -> None:
         self.chroma_repo = chroma_repo
         self.docstore = docstore
         self.chunking_service = chunking_service
         self.embedding_model = embedding_model
+        self.progress = progress
 
     @staticmethod
     def discover_knowledge_bases(data_dir: Path) -> list[str]:
@@ -138,7 +140,9 @@ class IngestionService:
             )
             parent_ids: list[str] = []
             try:
-                for file_path in files:
+                for file_index, file_path in enumerate(files):
+                    if self.progress:
+                        self.progress(file_index, len(files))
                     parent_ids.extend(
                         self._ingest_file(
                             file_path=file_path,
@@ -148,6 +152,8 @@ class IngestionService:
                         )
                     )
                 self.chroma_repo.activate_index(normalized, staging, manifest)
+                if self.progress:
+                    self.progress(len(files), len(files))
             except Exception:
                 self.chroma_repo.client.delete_collection(staging.name)
                 self.docstore.mdelete(parent_ids)
@@ -198,8 +204,10 @@ class IngestionService:
             chunk for chunk in chunks if chunk.metadata.get("chunk_type") == "child"
         ]
         for parent in parent_chunks:
+            parent.metadata["index_version"] = collection.name
             parent.id = f"{collection.name}:{parent.id}"
         for child in child_chunks:
+            child.metadata["index_version"] = collection.name
             child.metadata["parent_id"] = (
                 f"{collection.name}:{child.metadata['parent_id']}"
             )

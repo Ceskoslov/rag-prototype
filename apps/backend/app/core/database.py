@@ -56,7 +56,7 @@ database_url, database_connect_args = prepare_async_database_url(
 async_engine = create_async_engine(
     database_url,
     connect_args=database_connect_args,
-    echo=settings.environment == "development",
+    echo=False,
     future=True,
     pool_pre_ping=True,
 )

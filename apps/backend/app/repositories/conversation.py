@@ -72,6 +72,7 @@ class ConversationRepository:
         """Get existing conversation or create new one if not exists."""
         conv = await self.get_conversation(session_id)
         if conv:
+            conv.knowledge_base = knowledge_base
             return conv
         return await self.create_conversation(session_id, knowledge_base)
 

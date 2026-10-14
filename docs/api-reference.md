@@ -107,3 +107,27 @@ Does not require an API key.
   }
 }
 ```
+
+## Document lifecycle and sessions
+
+- `GET /api/v1/knowledge-bases/{name}/documents`: local files and index status.
+- `PUT /api/v1/knowledge-bases/{name}/documents/{path}`: raw file bytes, at most
+  20 MB; returns an indexing job ID (202). Supports PDF and text-based loaders.
+- `DELETE` at that document path: delete local file and queue a new snapshot.
+- `GET` at that document path: download original as an attachment.
+- `POST /api/v1/knowledge-bases/{name}/rebuild`: queue index synchronization.
+- `GET /api/v1/jobs/{id}`: job status, file progress and result/failure.
+- `GET /api/v1/sessions`: recent sessions in this shared demo.
+- `GET /api/v1/sessions/{id}/messages`: saved messages and complete evidence.
+- `GET /api/v1/health`: process liveness, dependencies marked unchecked.
+- `GET /api/v1/ready`: dependency probes; 503 if any service is unavailable.
+
+Streaming emits `progress`, `reset`, `token`, `verification`, `sources`, `trace`,
+`heartbeat`, `error` and `done`. `reset` replaces a previous draft. Text remains
+unverified until the evidence judge approves it. Only the final answer is saved.
+The final `done` event contains the session ID and grounded flag.
+
+Evaluation accepts `references`, a mapping from exact user question to an
+independently written reference answer. Recall is null without references.
+Results include evaluator provenance. Local mock providers cannot run quality
+evaluation. The shared demo has no user/tenant isolation.

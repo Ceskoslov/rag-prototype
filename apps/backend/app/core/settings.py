@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     cors_origin_regex: str | None = None
     enable_evaluation: bool = True
     evaluation_model: str | None = None
+    rag_timeout_seconds: float = 180
 
     llm_provider: str = "mock"
     openai_api_key: str | None = None

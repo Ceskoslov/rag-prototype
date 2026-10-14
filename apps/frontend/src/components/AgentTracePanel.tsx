@@ -39,7 +39,11 @@ export const AgentTracePanel = ({ trace }: AgentTracePanelProps) => {
             <dt className="text-gray-600">Steps</dt>
             <dd className="font-medium">{(trace.pipeline_steps ?? []).join(' → ')}</dd>
           </div>
+          {trace.metrics?.elapsed_ms !== undefined && <div className="flex justify-between"><dt>Total time</dt><dd>{(trace.metrics.elapsed_ms / 1000).toFixed(2)} s</dd></div>}
+          {trace.metrics?.first_token_ms != null && <div className="flex justify-between"><dt>First token</dt><dd>{(trace.metrics.first_token_ms / 1000).toFixed(2)} s</dd></div>}
+          {trace.metrics?.tokens?.total_tokens !== undefined && <div className="flex justify-between"><dt>Reported tokens</dt><dd>{trace.metrics.tokens.total_tokens}</dd></div>}
         </dl>
+        {trace.metrics?.stages && <ol className="mt-3 text-xs">{trace.metrics.stages.map((stage, index) => <li key={index}>{stage.stage}: {Math.round(stage.duration_ms)} ms</li>)}</ol>}
       </section>
 
       {(trace.retrieval_sources ?? []).length > 0 && (

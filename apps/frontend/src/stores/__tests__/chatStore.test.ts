@@ -27,3 +27,11 @@ describe('useChatStore', () => {
     expect(useChatStore.getState().messages[0].content).toBe('Hello world')
   })
 })
+
+
+it('new chat starts a new server session and clears evidence', () => {
+  const previous = useChatStore.getState().sessionId
+  useChatStore.getState().clearMessages()
+  expect(useChatStore.getState().sessionId).not.toBe(previous)
+  expect(useChatStore.getState().sources).toEqual([])
+})

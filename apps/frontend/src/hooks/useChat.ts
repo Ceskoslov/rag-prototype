@@ -1,115 +1,76 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useChatStore } from '../stores/chatStore'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
-const API_KEY = import.meta.env.VITE_API_KEY || 'test-key'
+import { apiFetch } from '@/lib/api'
 
 export const useChat = () => {
-  const {
-    messages,
-    isLoading,
-    knowledgeBase,
-    sessionId,
-    agentTrace,
-    sources,
-    addMessage,
-    updateLastMessage,
-    setLoading,
-    setKnowledgeBase,
-    clearMessages,
-    setAgentTrace,
-    setSources,
-    setError,
-  } = useChatStore()
+  const state = useChatStore()
+  const controllerRef = useRef<AbortController | null>(null)
+  useEffect(() => () => controllerRef.current?.abort(), [])
 
+  const cancel = useCallback(() => controllerRef.current?.abort(), [])
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return
-
-    addMessage('user', text)
-    setLoading(true)
-    setAgentTrace(null)
-    setSources([])
-    setError(null)
-
-    addMessage('assistant', '')
-
-    const url = `${API_BASE_URL}/chat/stream`
-    const payload = {
-      message: text,
-      session_id: sessionId,
-      knowledge_base: knowledgeBase === 'all' ? null : knowledgeBase,
-    }
-
+    const store = useChatStore.getState()
+    if (!text.trim() || store.isLoading) return
+    const controller = new AbortController()
+    controllerRef.current = controller
+    store.addMessage('user', text)
+    store.addMessage('assistant', '')
+    store.setLoading(true)
+    store.setAgentTrace(null)
+    store.setSources([])
+    store.setError(null)
+    store.setStage('Preparing answer')
+    store.setVerified(false)
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
+    let completed = false
     try {
-      const response = await fetch(url, {
+      const response = await apiFetch('/chat/stream', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': API_KEY,
-        },
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({ message: text, session_id: store.sessionId, knowledge_base: store.knowledgeBase === 'all' ? null : store.knowledgeBase }),
       })
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Invalid API key. Please check your credentials.')
-        }
-        throw new Error(`API error: ${response.status} ${response.statusText}`)
-      }
-
-      if (!response.body) {
-        throw new Error('No response body')
-      }
-
-      const reader = response.body.getReader()
+      if (!response.body) throw new Error('No response stream')
+      reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-
-      while (true) {
+      const handle = (frame: string) => {
+        const payload = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
+        if (!payload) return
+        const event = JSON.parse(payload)
+        if (event.type === 'token') store.updateLastMessage(event.content)
+        else if (event.type === 'reset') { store.replaceLastMessage(event.content || ''); store.setVerified(false) }
+        else if (event.type === 'sources') store.setSources(event.data || [])
+        else if (event.type === 'trace') store.setAgentTrace(event.data)
+        else if (event.type === 'progress') store.setStage(event.data?.stage || 'Working')
+        else if (event.type === 'verification') store.setVerified(Boolean(event.data?.grounded))
+        else if (event.type === 'error') throw new Error(event.data?.message || 'Answer failed')
+        else if (event.type === 'done') { completed = true; store.setVerified(Boolean(event.data?.grounded)) }
+      }
+      while (!completed) {
         const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.trim() || !line.startsWith('data: ')) continue
-
-          const data = line.substring(6)
-          try {
-            const event = JSON.parse(data)
-
-            if (event.type === 'token') {
-              updateLastMessage(event.content)
-            } else if (event.type === 'sources') {
-              setSources(event.data || [])
-            } else if (event.type === 'trace') {
-              setAgentTrace(event.data)
-            } else if (event.type === 'done') {
-              setLoading(false)
-            }
-          } catch (err) {
-            console.error('Failed to parse SSE event:', err, data)
-          }
+        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
+        buffer = buffer.replace(/\r\n/g, '\n')
+        let boundary: number
+        while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+          handle(buffer.slice(0, boundary))
+          buffer = buffer.slice(boundary + 2)
+        }
+        if (done) {
+          if (buffer.trim()) handle(buffer)
+          break
         }
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Network error. Please try again.'
-      setError(errorMessage)
-      setLoading(false)
-      console.error('Chat stream error:', err)
+      if (!completed) throw new Error('Connection ended before the answer completed. Please retry.')
+    } catch (error) {
+      if (!controller.signal.aborted) store.setError(error instanceof Error ? error.message : 'Network error')
+      else store.setStage('Cancelled')
+    } finally {
+      await reader?.cancel().catch(() => {})
+      controllerRef.current = null
+      store.setLoading(false)
+      if (completed) store.setStage('')
     }
-  }, [isLoading, knowledgeBase, sessionId, addMessage, setLoading, setAgentTrace, updateLastMessage, setSources, setError])
-
-  return {
-    messages,
-    isLoading,
-    knowledgeBase,
-    agentTrace,
-    sources,
-    sendMessage,
-    setKnowledgeBase,
-    clearMessages,
-  }
+  }, [])
+  return { ...state, sendMessage, cancel }
 }

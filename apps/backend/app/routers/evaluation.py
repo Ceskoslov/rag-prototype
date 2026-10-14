@@ -158,7 +158,8 @@ async def get_evaluation_status(
         if status_value in {"queued", "in_progress", "deferred"}:
             mapped = "pending"
         elif status_value == "complete":
-            mapped = "complete"
+            info = await job.result_info()
+            mapped = "failed" if info is not None and info.success is False else "complete"
         elif status_value == "not_found":
             mapped = "failed"
         else:

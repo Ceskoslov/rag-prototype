@@ -23,6 +23,8 @@ export interface AgentTrace {
   retrieval_sources: RetrievalSource[]
   iterations: number
   pipeline_steps: string[]
+  grounded?: boolean
+  metrics?: { elapsed_ms?: number; first_token_ms?: number | null; tokens?: { total_tokens?: number }; stages?: Array<{ stage: string; duration_ms: number }> }
   confidence?: number
 }
 

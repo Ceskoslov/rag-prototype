@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from app.core.database import async_session_factory
@@ -33,11 +34,19 @@ async def ingest_knowledge_base_task(
         chunking_service = ChunkingService()
         embedding_model = get_embedding_model(settings)
 
+        progress_store = RedisDocStore(
+            settings.arq_redis_url or settings.redis_url.rsplit("/", 1)[0] + "/1"
+        )
         service = IngestionService(
             chroma_repo=chroma_repo,
             docstore=docstore,
             chunking_service=chunking_service,
             embedding_model=embedding_model,
+            progress=lambda completed, total: progress_store.client.set(
+                f"job_progress:{ctx.get('job_id')}",
+                json.dumps({"completed_files": completed, "total_files": total}),
+                ex=3600,
+            ),
         )
 
         await service.ingest_knowledge_base(

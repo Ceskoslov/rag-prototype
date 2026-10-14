@@ -49,3 +49,16 @@ Historical short snippets are excluded. Stored results include evaluator and
 reference provenance. Added a fictional multilingual corpus with distractors,
 source labels, independent answers, no-answer and injection cases. Offline
 benchmark reports explicitly disclaim model-quality claims.
+
+## Step 5
+
+LangGraph now runs async nodes and emits actual model chunks, progress,
+verification and replacement events. Rejected drafts are replaced and the UI
+labels in-flight text as unverified. Cancellation closes the model stream;
+server heartbeats continue during slow work. Frontend handles premature EOF,
+server errors and new session IDs. Added session history, per-answer source
+inspection/download, document upload/delete/rebuild and job progress. Sources
+record their index snapshot. Traces contain stage timings, first-token latency
+and provider-reported graph token usage. Live and ready endpoints are separate;
+ready actually probes dependencies. HTTP logs include request IDs and timings
+without logging prompts or document bodies.

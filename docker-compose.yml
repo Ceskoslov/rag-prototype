@@ -22,6 +22,9 @@ x-backend-env: &backend-env
 x-backend: &backend
   build:
     context: ./apps/backend
+    args:
+      APP_UID: ${LOCAL_UID:-1000}
+      APP_GID: ${LOCAL_GID:-1000}
   environment: *backend-env
   volumes:
     - ./data:/data
@@ -81,7 +84,7 @@ services:
       chromadb:
         condition: service_started
     healthcheck:
-      test: [CMD, curl, -f, http://localhost:8000/api/v1/health]
+      test: [CMD, curl, -f, http://localhost:8000/api/v1/ready]
       interval: 10s
       timeout: 5s
       retries: 10

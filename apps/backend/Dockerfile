@@ -33,7 +33,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=base /app /app
 
-RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN groupadd --gid "$APP_GID" appgroup \
+    && useradd --create-home --uid "$APP_UID" --gid "$APP_GID" appuser \
+    && mkdir -p /home/appuser/.cache \
+    && chown -R appuser:appgroup /app /home/appuser
 USER appuser
 
 EXPOSE 8000

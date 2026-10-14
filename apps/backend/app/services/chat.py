@@ -4,6 +4,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
+from contextlib import aclosing, suppress
 from typing import Any
 
 from sqlalchemy import func, select
@@ -36,7 +37,7 @@ class ChatService:
             knowledge_base,
         )
         history = await self._history(conversation.id)
-        query = self._build_query_with_history(message=message, history=history)
+        query = await self.rag.resolve_question(message, history)
         result = await self._run_rag(query, knowledge_base)
 
         await self.conversation_repo.add_message(
@@ -65,7 +66,8 @@ class ChatService:
             knowledge_base,
         )
         history = await self._history(conversation.id)
-        query = self._build_query_with_history(message=message, history=history)
+        yield self._sse({"type": "heartbeat"})
+        query = await self.rag.resolve_question(message, history)
         await self.conversation_repo.add_message(
             conversation_id=conversation.id,
             role="user",
@@ -73,39 +75,70 @@ class ChatService:
         )
         yield self._sse({"type": "heartbeat"})
 
-        result = await self._run_rag(query, knowledge_base)
-        if result.confidence == 0.0 and result.pipeline_steps == ["error"]:
-            yield self._sse(
-                {
-                    "type": "error",
-                    "data": {"message": result.answer},
-                }
-            )
+        queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=64)
 
-        for index, token in enumerate(result.answer.split(" ")):
-            yield self._sse(
-                {
-                    "type": "token",
-                    "content": token if index == 0 else f" {token}",
-                }
-            )
+        async def produce():
+            try:
+                async with aclosing(self.rag.astream(query, knowledge_base)) as stream:
+                    async for event in stream:
+                        await queue.put(event)
+            except Exception as exc:
+                await queue.put(exc)
+            finally:
+                if not asyncio.current_task().cancelling():
+                    await queue.put(None)
 
-        yield self._sse({"type": "sources", "data": result.sources})
-        yield self._sse(
-            {
-                "type": "trace",
-                "data": self._agent_trace(result).model_dump(),
-            }
-        )
-        await self.conversation_repo.add_message(
-            conversation_id=conversation.id,
-            role="assistant",
-            content=result.answer,
-            sources=result.sources,
-            trace=self._trace_payload(result, len(history)),
-        )
-        await self.session.commit()
-        yield self._sse({"type": "done"})
+        producer = asyncio.create_task(produce())
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=10)
+                except TimeoutError:
+                    yield self._sse({"type": "heartbeat"})
+                    continue
+                if event is None:
+                    break
+                if isinstance(event, Exception):
+                    logger.exception("rag_stream_failed", error=str(event))
+                    yield self._sse(
+                        {
+                            "type": "error",
+                            "data": {
+                                "message": "Unable to complete this answer. Please retry."
+                            },
+                        }
+                    )
+                    return
+                if event["type"] != "result":
+                    yield self._sse(event)
+                    continue
+                result = event["data"]
+                await self.conversation_repo.add_message(
+                    conversation.id,
+                    "assistant",
+                    result.answer,
+                    sources=result.sources,
+                    trace=self._trace_payload(result, len(history)),
+                )
+                await self.session.commit()
+                yield self._sse({"type": "reset", "content": result.answer})
+                yield self._sse({"type": "sources", "data": result.sources})
+                yield self._sse(
+                    {"type": "trace", "data": self._agent_trace(result).model_dump()}
+                )
+                yield self._sse(
+                    {
+                        "type": "done",
+                        "data": {
+                            "session_id": conversation.session_id,
+                            "grounded": result.grounded,
+                        },
+                    }
+                )
+        finally:
+            producer.cancel()
+            with suppress(asyncio.CancelledError):
+                await producer
 
     async def _run_rag(
         self,
@@ -113,7 +146,7 @@ class ChatService:
         knowledge_base: str | None,
     ) -> RAGResult:
         try:
-            return await asyncio.to_thread(self.rag.query, query, knowledge_base)
+            return await self.rag.aquery(query, knowledge_base)
         except Exception as exc:
             logger.exception(
                 "rag_query_failed",
@@ -180,6 +213,8 @@ class ChatService:
             retrieval_sources=result.sources,
             iterations=result.iterations,
             pipeline_steps=result.pipeline_steps,
+            metrics=result.metrics,
+            grounded=result.grounded,
         )
 
     def _trace_payload(

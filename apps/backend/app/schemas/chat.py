@@ -33,6 +33,8 @@ class AgentTrace(BaseModel):
     )
     iterations: int = Field(..., description="Number of iterations/refinement cycles")
     pipeline_steps: list[str] = Field(default_factory=list)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    grounded: bool = False
 
 
 class ChatResponse(BaseModel):

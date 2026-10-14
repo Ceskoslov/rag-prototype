@@ -14,10 +14,10 @@ describe('ChatPage', () => {
     })
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
+      vi.fn().mockImplementation(async (url: string) => ({
         ok: true,
-        json: async () => [{ name: 'product_docs' }, { name: 'policies' }],
-      }),
+        json: async () => url.endsWith("/sessions") ? [] : [{ name: "product_docs" }, { name: "policies" }],
+      })),
     )
 
     render(<ChatPage />)

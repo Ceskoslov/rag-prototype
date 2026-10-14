@@ -89,3 +89,24 @@ def test_health_status_degraded_when_services_fail(client):
     data = response.json()
     assert "status" in data
     assert "services" in data
+
+
+def test_readiness_returns_503_when_a_dependency_is_unavailable(client, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.routers import health
+
+    monkeypatch.setattr(
+        health,
+        "probe_services",
+        AsyncMock(
+            return_value={"redis": "unavailable", "chromadb": "ok", "postgres": "ok"}
+        ),
+    )
+    response = client.get("/api/v1/ready")
+    assert response.status_code == 503
+    assert response.json()["status"] == "degraded"
+
+
+def test_liveness_does_not_claim_dependency_connectivity(client):
+    assert client.get("/api/v1/health").json()["services"]["redis"] == "unchecked"
