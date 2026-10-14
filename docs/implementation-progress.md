@@ -15,3 +15,17 @@ Each numbered step is committed and pushed separately.
 The initial environment has no running Docker daemon. Container acceptance
 must be recorded separately from config validation and local tests. Mock
 providers test wiring only, not model quality.
+
+## Step 1
+
+Compose and development override parse successfully. Backend baseline: 63
+passing tests plus the new offline embedding check. Frontend: 36 tests, build
+and lint pass. Docker daemon is unavailable and sudo requires a password.
+
+## Step 2
+
+Critique receives the original question and complete numbered passages, uses
+validated JSON, and rejects invalid citation numbers. Rejected answers abstain
+at the iteration limit. Source responses preserve one stable ID per passage
+and full evidence for later evaluation. Regression checks cover three rejected
+iterations and multiple passages from one file.

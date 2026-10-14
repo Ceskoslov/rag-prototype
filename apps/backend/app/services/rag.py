@@ -17,6 +17,7 @@ class RAGResult:
     confidence: float
     iterations: int
     pipeline_steps: list[str]
+    grounded: bool = False
 
 
 class RAGService:
@@ -58,6 +59,7 @@ class RAGService:
             answer=str(raw.get("generation") or "No answer available."),
             knowledge_bases_used=knowledge_bases,
             sources=sources,
+            grounded=raw.get("critique_result") == "approved",
             confidence=float(raw.get("confidence", 0.0)),
             iterations=int(raw.get("iterations", 1)),
             pipeline_steps=[str(step) for step in raw.get("node_history", [])],
@@ -66,23 +68,19 @@ class RAGService:
     @staticmethod
     def _sources(documents: list[Document]) -> list[dict[str, Any]]:
         sources: list[dict[str, Any]] = []
-        seen: set[tuple[str, str, int | None]] = set()
-        for document in documents:
+        for citation_id, document in enumerate(documents, start=1):
             metadata = document.metadata
             source_path = str(
-                metadata.get("source_path")
-                or metadata.get("source_file")
-                or "unknown"
+                metadata.get("source_path") or metadata.get("source_file") or "unknown"
             )
             knowledge_base = str(metadata.get("knowledge_base") or "unknown")
             page_raw = metadata.get("page")
             page = int(page_raw) if isinstance(page_raw, int) else None
-            key = (knowledge_base, source_path, page)
-            if key in seen:
-                continue
-            seen.add(key)
             sources.append(
                 {
+                    "citation_id": citation_id,
+                    "document_id": document.id,
+                    "content": document.page_content,
                     "title": source_path,
                     "source_path": source_path,
                     "knowledge_base": knowledge_base,

@@ -16,7 +16,8 @@ def get_chat_model() -> BaseChatModel:
             model=settings.openai_model,
             api_key=settings.openai_api_key,
             temperature=0,
-            max_retries=3,
+            max_retries=2,
+            timeout=45,
             use_responses_api=True,
             store=False,
         )
@@ -37,7 +38,8 @@ def get_chat_model() -> BaseChatModel:
             azure_deployment=settings.azure_openai_deployment_name,
             api_version=settings.azure_openai_api_version,
             temperature=0,
-            max_retries=3,
+            max_retries=2,
+            timeout=45,
         )
 
     if provider == "mock":
