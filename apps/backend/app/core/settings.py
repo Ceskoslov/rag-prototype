@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     azure_openai_deployment_name: str | None = None
     azure_openai_embedding_deployment: str | None = None
 
+    dense_max_distance: float | None = 0.8
+    reranker_model: str | None = None
+
     embedding_provider: str = "local"
     embedding_model_name: str = "BAAI/bge-m3"
     openai_embedding_model: str = "text-embedding-3-small"

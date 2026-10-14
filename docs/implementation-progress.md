@@ -29,3 +29,14 @@ validated JSON, and rejects invalid citation numbers. Rejected answers abstain
 at the iteration limit. Source responses preserve one stable ID per passage
 and full evidence for later evaluation. Regression checks cover three rejected
 iterations and multiple passages from one file.
+
+## Step 3
+
+Knowledge-base updates build a shadow Chroma collection, then atomically upsert
+the catalog pointer. Failed builds keep the prior snapshot. Re-indexing detects
+file deletions and fingerprints embedding configuration plus chunking. Old
+parent entries expire after a ten-minute reader grace period; obsolete Chroma
+snapshots are collected on subsequent ingestion. BM25 caches refresh when the
+active collection changes. CJK bigrams, positive BM25L scores, batched parent
+reads and global ranking replace per-base rank comparison. Distance thresholds
+are configurable and must be calibrated with the benchmark.

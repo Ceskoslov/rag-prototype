@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import csv
 import hashlib
 import json
@@ -11,6 +12,7 @@ from langchain_core.embeddings import Embeddings
 from pypdf import PdfReader
 
 from app.core.docstore import RedisDocStore
+from app.core.embeddings import embedding_signature
 from app.core.logging import get_logger
 from app.repositories.vectorstore import ChromaCollection, ChromaRepository
 from app.schemas.common import normalize_knowledge_base
@@ -48,6 +50,11 @@ class IngestionService:
     def discover_knowledge_bases(data_dir: Path) -> list[str]:
         if not data_dir.exists():
             return []
+        for path in data_dir.iterdir():
+            if path.is_dir() and normalize_knowledge_base(path.name) != path.name:
+                raise ValueError(
+                    f"Rename knowledge-base directory to its canonical slug: {path.name}"
+                )
         return sorted(
             normalize_knowledge_base(path.name)
             for path in data_dir.iterdir()
@@ -60,11 +67,22 @@ class IngestionService:
 
     async def ingest_all(self, data_dir: Path) -> dict[str, int]:
         results: dict[str, int] = {}
-        for knowledge_base in self.discover_knowledge_bases(data_dir):
+        targets = sorted(
+            set(self.discover_knowledge_bases(data_dir))
+            | {
+                name
+                for name in self.chroma_repo.list_knowledge_bases()
+                if (data_dir / name).is_dir()
+            }
+        )
+        for knowledge_base in targets:
             results[knowledge_base] = await self.ingest_knowledge_base(
                 knowledge_base=knowledge_base,
                 data_dir=data_dir,
             )
+        for name in self.chroma_repo.list_knowledge_bases():
+            if not (data_dir / name).is_dir():
+                self.chroma_repo.delete_collection(name)
         return results
 
     async def ingest_knowledge_base(
@@ -72,6 +90,11 @@ class IngestionService:
         knowledge_base: str,
         data_dir: Path,
     ) -> int:
+        return await asyncio.to_thread(
+            self._ingest_knowledge_base, knowledge_base, data_dir
+        )
+
+    def _ingest_knowledge_base(self, knowledge_base: str, data_dir: Path) -> int:
         normalized = normalize_knowledge_base(knowledge_base)
         base_path = data_dir / normalized
         if not base_path.is_dir():
@@ -84,48 +107,85 @@ class IngestionService:
             for file in base_path.rglob("*")
             if file.is_file() and file.suffix.casefold() in SUPPORTED_EXTENSIONS
         )
-        collection = self.chroma_repo.create_collection(
-            knowledge_base=normalized,
-            metadata={"knowledge_base": normalized},
+        # One writer per knowledge base; queries continue using the active index.
+        lock = self.docstore.client.lock(
+            f"ingest_lock:{normalized}", timeout=3600, blocking_timeout=0
         )
-        processed = 0
-        for file_path in files:
-            changed = await self._ingest_file(
-                file_path=file_path,
-                base_path=base_path,
-                knowledge_base=normalized,
-                collection=collection,
+        if not lock.acquire(blocking=False):
+            raise ValueError("Knowledge base is already being indexed")
+        try:
+            manifest = json.dumps(
+                {
+                    "files": {
+                        file.relative_to(base_path).as_posix(): hashlib.sha256(
+                            file.read_bytes()
+                        ).hexdigest()
+                        for file in files
+                    },
+                    "embedding": embedding_signature(self.embedding_model),
+                    "chunking": self.chunking_service.signature,
+                },
+                sort_keys=True,
             )
-            processed += int(changed)
+            previous = self.chroma_repo.index_record(normalized)
+            if previous and previous.get("manifest") == manifest:
+                return 0
+            staging = self.chroma_repo.create_staging_collection(
+                normalized,
+                {
+                    "embedding_signature": embedding_signature(self.embedding_model),
+                },
+            )
+            parent_ids: list[str] = []
+            try:
+                for file_path in files:
+                    parent_ids.extend(
+                        self._ingest_file(
+                            file_path=file_path,
+                            base_path=base_path,
+                            knowledge_base=normalized,
+                            collection=staging,
+                        )
+                    )
+                self.chroma_repo.activate_index(normalized, staging, manifest)
+            except Exception:
+                self.chroma_repo.client.delete_collection(staging.name)
+                self.docstore.mdelete(parent_ids)
+                raise
+            if previous:
+                # Grace period lets in-flight readers finish against their old snapshot.
+                for key in self.docstore.yield_keys(
+                    prefix=str(previous["collection"]) + ":"
+                ):
+                    self.docstore.client.expire(self.docstore._make_key(key), 600)
+            self.chroma_repo.garbage_collect(normalized)
+            logger.info(
+                "ingestion_complete",
+                knowledge_base=normalized,
+                files=len(files),
+                index_version=staging.name,
+            )
+            return len(files)
+        finally:
+            lock.release()
 
-        logger.info(
-            "ingestion_complete",
-            knowledge_base=normalized,
-            discovered_files=len(files),
-            processed_files=processed,
-        )
-        return processed
-
-    async def _ingest_file(
+    def _ingest_file(
         self,
         *,
         file_path: Path,
         base_path: Path,
         knowledge_base: str,
         collection: ChromaCollection,
-    ) -> bool:
-        file_bytes = file_path.read_bytes()
-        file_hash = hashlib.sha256(file_bytes).hexdigest()
-        source_path = file_path.relative_to(base_path).as_posix()
-        hash_key = f"ingested_files:{knowledge_base}:{source_path}"
-        if self.docstore.client.get(hash_key) == file_hash:
-            return False
-
+    ) -> list[str]:
         source_documents = self._load_file(
             file_path=file_path,
             knowledge_base=knowledge_base,
-            source_path=source_path,
+            source_path=file_path.relative_to(base_path).as_posix(),
         )
+        if not source_documents:
+            raise ValueError(
+                f"No extractable text in {file_path.name}; scanned PDFs require OCR"
+            )
         chunks = [
             chunk
             for document in source_documents
@@ -137,38 +197,32 @@ class IngestionService:
         child_chunks = [
             chunk for chunk in chunks if chunk.metadata.get("chunk_type") == "child"
         ]
-
-        self.chroma_repo.delete_by_source(collection, source_path)
-        if parent_chunks:
-            self.docstore.mset(
-                [(str(chunk.id), chunk) for chunk in parent_chunks if chunk.id]
+        for parent in parent_chunks:
+            parent.id = f"{collection.name}:{parent.id}"
+        for child in child_chunks:
+            child.metadata["parent_id"] = (
+                f"{collection.name}:{child.metadata['parent_id']}"
             )
-        if child_chunks:
-            embeddings = self.embedding_model.embed_documents(
-                [chunk.page_content for chunk in child_chunks]
+        # Embed before storing parents; failed batches leave the active snapshot intact.
+        for offset in range(0, len(child_chunks), 64):
+            batch = child_chunks[offset : offset + 64]
+            vectors = self.embedding_model.embed_documents(
+                [chunk.page_content for chunk in batch]
             )
             self.chroma_repo.upsert_documents(
-                collection=collection,
-                docs=[
+                collection,
+                [
                     {
                         "id": chunk.id,
                         "document": chunk.page_content,
                         "metadata": dict(chunk.metadata),
                     }
-                    for chunk in child_chunks
+                    for chunk in batch
                 ],
-                embeddings=embeddings,
+                vectors,
             )
-
-        self.docstore.client.set(hash_key, file_hash)
-        logger.info(
-            "file_ingested",
-            knowledge_base=knowledge_base,
-            source_path=source_path,
-            parent_chunks=len(parent_chunks),
-            child_chunks=len(child_chunks),
-        )
-        return True
+        self.docstore.mset([(str(chunk.id), chunk) for chunk in parent_chunks])
+        return [str(chunk.id) for chunk in parent_chunks]
 
     @staticmethod
     def _load_file(
@@ -187,14 +241,17 @@ class IngestionService:
 
         if suffix == ".pdf":
             reader = PdfReader(str(file_path))
-            return [
-                Document(
-                    page_content=page.extract_text() or "",
-                    metadata={**base_metadata, "page": page_number},
-                )
-                for page_number, page in enumerate(reader.pages, start=1)
-                if page.extract_text()
-            ]
+            documents = []
+            for page_number, page in enumerate(reader.pages, start=1):
+                text = page.extract_text() or ""
+                if text.strip():
+                    documents.append(
+                        Document(
+                            page_content=text,
+                            metadata={**base_metadata, "page": page_number},
+                        )
+                    )
+            return documents
 
         text = file_path.read_text(encoding="utf-8", errors="replace")
         if suffix in {".html", ".htm"}:
@@ -213,4 +270,8 @@ class IngestionService:
                 for row in rows
             )
 
-        return [Document(page_content=text, metadata=base_metadata)] if text.strip() else []
+        return (
+            [Document(page_content=text, metadata=base_metadata)]
+            if text.strip()
+            else []
+        )

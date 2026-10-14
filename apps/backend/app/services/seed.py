@@ -29,15 +29,15 @@ class SeedService:
         results: dict[str, str] = {}
         pool = await arq.create_pool(
             RedisSettings.from_dsn(
-                self.arq_redis_url
-                or self.redis_url.rsplit("/", 1)[0] + "/1"
+                self.arq_redis_url or self.redis_url.rsplit("/", 1)[0] + "/1"
             )
         )
         try:
             for name in IngestionService.discover_knowledge_bases(self.data_dir):
-                count = self.chroma_repo.get_collection_count(
-                    self.chroma_repo._collection_name(name)
-                )
+                try:
+                    count = self.chroma_repo.get_collection(name).count()
+                except ValueError:
+                    count = 0
                 if count > 0:
                     results[name] = "skipped"
                     continue
@@ -49,9 +49,10 @@ class SeedService:
         return results
 
     async def check_seed_status(self) -> dict[str, int]:
-        return {
-            name: self.chroma_repo.get_collection_count(
-                self.chroma_repo._collection_name(name)
-            )
-            for name in IngestionService.discover_knowledge_bases(self.data_dir)
-        }
+        counts = {}
+        for name in IngestionService.discover_knowledge_bases(self.data_dir):
+            try:
+                counts[name] = self.chroma_repo.get_collection(name).count()
+            except ValueError:
+                counts[name] = 0
+        return counts

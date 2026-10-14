@@ -45,6 +45,7 @@ class RedisDocStore(BaseStore[str, Document]):
         """Serialize Document to JSON string."""
         return json.dumps(
             {
+                "id": doc.id,
                 "page_content": doc.page_content,
                 "metadata": doc.metadata,
             }
@@ -54,6 +55,7 @@ class RedisDocStore(BaseStore[str, Document]):
         """Deserialize JSON string to Document."""
         obj = json.loads(data)
         return Document(
+            id=obj.get("id"),
             page_content=obj["page_content"],
             metadata=obj["metadata"],
         )

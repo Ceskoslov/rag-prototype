@@ -16,6 +16,12 @@ class ChunkingService:
         child_chunk_size: int = 320,
         child_chunk_overlap: int = 64,
     ) -> None:
+        self.signature = (
+            parent_chunk_size,
+            parent_chunk_overlap,
+            child_chunk_size,
+            child_chunk_overlap,
+        )
         parent_chunk_overlap = min(parent_chunk_overlap, parent_chunk_size - 1)
         child_chunk_overlap = min(child_chunk_overlap, child_chunk_size - 1)
         self._markdown_splitter: MarkdownHeaderTextSplitter = (
@@ -67,6 +73,7 @@ class ChunkingService:
                 "parent",
                 knowledge_base,
                 source_path,
+                str(metadata.get("page", "")),
                 str(parent_index),
                 parent_doc.page_content,
             )

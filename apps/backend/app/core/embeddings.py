@@ -20,9 +20,7 @@ def get_embedding_model(settings: object) -> Embeddings:
     if provider == "local":
         from langchain_huggingface import HuggingFaceEmbeddings
 
-        model_name = str(
-            getattr(settings, "embedding_model_name", "BAAI/bge-m3")
-        )
+        model_name = str(getattr(settings, "embedding_model_name", "BAAI/bge-m3"))
         cache_key = (provider, model_name)
         if cache_key not in _EMBEDDING_MODEL_CACHE:
             _EMBEDDING_MODEL_CACHE[cache_key] = HuggingFaceEmbeddings(
@@ -87,3 +85,21 @@ class MockEmbeddings(Embeddings):
             vector[int.from_bytes(digest[:2]) % 64] += 1.0
         norm = math.sqrt(sum(value * value for value in vector)) or 1.0
         return [value / norm for value in vector]
+
+
+def embedding_signature(model: Embeddings) -> str:
+    import hashlib
+    import json
+
+    from app.core.settings import settings
+
+    identity = {
+        "implementation": type(model).__name__,
+        "provider": settings.embedding_provider,
+        "model": settings.embedding_model_name
+        if settings.embedding_provider == "local"
+        else settings.openai_embedding_model,
+        "deployment": settings.azure_openai_embedding_deployment or "",
+        "endpoint": settings.azure_openai_endpoint or "",
+    }
+    return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()

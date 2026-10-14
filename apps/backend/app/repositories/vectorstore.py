@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol, cast
 from urllib.parse import urlparse
@@ -15,6 +17,9 @@ from app.schemas.common import normalize_knowledge_base
 class ChromaCollection(Protocol):
     @property
     def name(self) -> str: ...
+
+    @property
+    def metadata(self) -> dict[str, Any] | None: ...
 
     def upsert(
         self,
@@ -41,6 +46,8 @@ class ChromaCollection(Protocol):
     def get(
         self,
         include: list[str] | None = None,
+        ids: Sequence[str] | None = None,
+        where: object | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> Mapping[str, object]: ...
@@ -73,9 +80,7 @@ class ChromaRepository:
             }
             missing = [name for name, value in required.items() if not value]
             if missing:
-                raise ValueError(
-                    f"Missing Chroma Cloud settings: {', '.join(missing)}"
-                )
+                raise ValueError(f"Missing Chroma Cloud settings: {', '.join(missing)}")
             self.client = chromadb.CloudClient(
                 tenant=settings.chroma_tenant,
                 database=settings.chroma_database,
@@ -127,7 +132,8 @@ class ChromaRepository:
 
     def get_collection(self, knowledge_base: str) -> ChromaCollection:
         normalized = normalize_knowledge_base(knowledge_base)
-        candidates = [
+        active = self.index_record(normalized)
+        candidates = ([str(active["collection"])] if active else []) + [
             self._collection_name(normalized),
             f"{normalized}{self._LEGACY_SUFFIX}",
         ]
@@ -142,7 +148,7 @@ class ChromaRepository:
         raise ValueError(f"Unknown knowledge base: {normalized}")
 
     def list_knowledge_bases(self) -> list[str]:
-        names: list[str] = []
+        names: list[str] = list(self.index_records())
         for collection in self.client.list_collections():
             raw_name = collection if isinstance(collection, str) else collection.name
             name = self._knowledge_base_from_collection(str(raw_name))
@@ -195,16 +201,12 @@ class ChromaRepository:
         )
 
         ids_nested = cast(list[list[str]], query_result.get("ids") or [])
-        documents_nested = cast(
-            list[list[str]] | None, query_result.get("documents")
-        )
+        documents_nested = cast(list[list[str]] | None, query_result.get("documents"))
         metadatas_nested = cast(
             list[list[Mapping[str, Any] | None]] | None,
             query_result.get("metadatas"),
         )
-        distances_nested = cast(
-            list[list[float]] | None, query_result.get("distances")
-        )
+        distances_nested = cast(list[list[float]] | None, query_result.get("distances"))
 
         ids = ids_nested[0] if ids_nested else []
         documents = documents_nested[0] if documents_nested else []
@@ -222,7 +224,72 @@ class ChromaRepository:
         ]
 
     def delete_collection(self, knowledge_base: str) -> None:
-        self.client.delete_collection(name=self._collection_name(knowledge_base))
+        normalized = normalize_knowledge_base(knowledge_base)
+        self._catalog().delete(ids=[normalized])
+        for collection in self.client.list_collections():
+            if (collection.metadata or {}).get("knowledge_base") == normalized:
+                self.client.delete_collection(name=collection.name)
+
+    def _catalog(self) -> Any:
+        return self.client.get_or_create_collection(
+            name="rag_catalog", embedding_function=None
+        )
+
+    def index_records(self) -> dict[str, dict[str, Any]]:
+        payload = self._catalog().get(include=["metadatas"])
+        return dict(zip(payload["ids"], payload["metadatas"], strict=True))
+
+    def index_record(self, knowledge_base: str) -> dict[str, Any] | None:
+        payload = self._catalog().get(
+            ids=[normalize_knowledge_base(knowledge_base)], include=["metadatas"]
+        )
+        return payload["metadatas"][0] if payload["metadatas"] else None
+
+    def create_staging_collection(
+        self, knowledge_base: str, metadata: dict[str, Any]
+    ) -> ChromaCollection:
+        return cast(
+            ChromaCollection,
+            self.client.create_collection(
+                name=f"idx_{uuid.uuid4().hex}",
+                embedding_function=None,
+                metadata={
+                    "knowledge_base": knowledge_base,
+                    "created_at": time.time(),
+                    "hnsw:space": "cosine",
+                    **metadata,
+                },
+            ),
+        )
+
+    def activate_index(
+        self, knowledge_base: str, collection: ChromaCollection, manifest: str
+    ) -> None:
+        self._catalog().upsert(
+            ids=[knowledge_base],
+            embeddings=[[0.0]],
+            documents=[manifest],
+            metadatas=[
+                {
+                    "collection": collection.name,
+                    "manifest": manifest,
+                    **(collection.metadata or {}),
+                }
+            ],
+        )
+
+    def garbage_collect(self, knowledge_base: str, grace_seconds: int = 600) -> None:
+        active = self.index_record(knowledge_base)
+        for collection in self.client.list_collections():
+            metadata = collection.metadata or {}
+            if (
+                collection.name.startswith("idx_")
+                and metadata.get("knowledge_base") == knowledge_base
+                and collection.name != (active or {}).get("collection")
+                and time.time() - float(metadata.get("created_at", time.time()))
+                > grace_seconds
+            ):
+                self.client.delete_collection(collection.name)
 
     def get_collection_count(self, collection_name: str) -> int:
         try:
