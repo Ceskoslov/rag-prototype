@@ -123,3 +123,8 @@ Container CI confirmed Postgres migration, API readiness, worker health and all
 six seed knowledge bases. The frontend started successfully but its BusyBox
 wget health probe failed against localhost; it now uses explicit IPv4 loopback
 matching Vite's binding. Failure diagnostics include the frontend health log.
+
+After the IPv4 probe fix all long-running containers became healthy. Compose
+`up --wait` then treated the successful one-shot seed exit as a failure. Nginx
+now declares seed's `service_completed_successfully` dependency, matching the
+migration lifecycle, so Compose knows to await completion rather than liveness.
